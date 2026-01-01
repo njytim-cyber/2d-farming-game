@@ -1,0 +1,226 @@
+/**
+ * Main Renderer
+ * Handles canvas setup, camera, and draw orchestration
+ */
+
+import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT, SEASON_COLORS, SEASONS, PALETTE } from '../game/constants.js';
+
+export class Renderer {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.resize();
+
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    /**
+     * Resize canvas to window size
+     */
+    resize() {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+    }
+
+    /**
+     * Get canvas dimensions
+     */
+    getSize() {
+        return {
+            width: this.canvas.width,
+            height: this.canvas.height
+        };
+    }
+
+    /**
+     * Calculate view dimensions based on zoom
+     */
+    getViewSize(zoom) {
+        return {
+            width: this.canvas.width / zoom,
+            height: this.canvas.height / zoom
+        };
+    }
+
+    /**
+     * Update camera position to follow player
+     */
+    updateCamera(playerVisX, playerVisY, zoom) {
+        const view = this.getViewSize(zoom);
+
+        let camX = playerVisX + TILE_SIZE / 2 - view.width / 2;
+        let camY = playerVisY + TILE_SIZE / 2 - view.height / 2;
+
+        // Clamp to map bounds
+        camX = Math.max(0, Math.min(camX, MAP_WIDTH * TILE_SIZE - view.width));
+        camY = Math.max(0, Math.min(camY, MAP_HEIGHT * TILE_SIZE - view.height));
+
+        return { x: camX, y: camY };
+    }
+
+    /**
+     * Get visible tile range for culling
+     */
+    getVisibleTileRange(camera, zoom) {
+        const view = this.getViewSize(zoom);
+
+        return {
+            startX: Math.floor(camera.x / TILE_SIZE),
+            endX: Math.ceil((camera.x + view.width) / TILE_SIZE) + 1,
+            startY: Math.floor(camera.y / TILE_SIZE),
+            endY: Math.ceil((camera.y + view.height) / TILE_SIZE) + 1
+        };
+    }
+
+    /**
+     * Clear the canvas
+     */
+    clear() {
+        this.ctx.fillStyle = '#121212';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    /**
+     * Begin world space drawing
+     */
+    beginWorldDraw(camera, zoom) {
+        this.ctx.save();
+        this.ctx.scale(zoom, zoom);
+        // Round camera coordinates to prevent sub-pixel gaps between tiles
+        this.ctx.translate(Math.floor(-camera.x), Math.floor(-camera.y));
+    }
+
+    /**
+     * End world space drawing
+     */
+    endWorldDraw() {
+        this.ctx.restore();
+    }
+
+    /**
+     * Draw rain overlay
+     */
+    drawRainOverlay() {
+        this.ctx.fillStyle = 'rgba(0, 0, 20, 0.2)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    // Legacy drawNightOverlay removed
+
+    /**
+     * Draw toast messages
+     */
+    /**
+     * Draw lighting overlay with point lights
+     */
+    drawLightingOverlay(darkness, lights = []) {
+        if (darkness <= 0) return;
+
+        // Use an offscreen canvas for the lighting multiply pass if needed,
+        // but for simple cases we can just fill a rect with multiply blend mode.
+        // However, to support 'punch-through' lights, we need a separate buffer.
+
+        if (!this.lightingCanvas) {
+            this.lightingCanvas = document.createElement('canvas');
+            this.lightingCtx = this.lightingCanvas.getContext('2d');
+        }
+
+        this.lightingCanvas.width = this.canvas.width;
+        this.lightingCanvas.height = this.canvas.height;
+
+        const lctx = this.lightingCtx;
+
+        // Fill with darkness
+        const nightColor = PALETTE.sky_night || '#1a1c2c';
+        lctx.fillStyle = nightColor;
+        lctx.globalAlpha = darkness;
+        lctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        lctx.globalAlpha = 1.0;
+
+        // Punch out lights
+        lctx.globalCompositeOperation = 'destination-out';
+
+        for (const light of lights) {
+            const rad = light.radius || 100;
+            const grad = lctx.createRadialGradient(
+                light.x, light.y, 0,
+                light.x, light.y, rad
+            );
+            grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+            grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+            lctx.fillStyle = grad;
+            lctx.beginPath();
+            lctx.arc(light.x, light.y, rad, 0, Math.PI * 2);
+            lctx.fill();
+        }
+
+        // Draw the lighting buffer back to main canvas using multiply
+        this.ctx.globalAlpha = 1.0;
+        this.ctx.globalCompositeOperation = 'multiply';
+        this.ctx.drawImage(this.lightingCanvas, 0, 0);
+        this.ctx.globalCompositeOperation = 'source-over';
+    }
+
+    drawMessages(messages) {
+        let y = this.canvas.height - 180;
+
+        this.ctx.textAlign = 'center';
+        this.ctx.font = 'bold 16px sans-serif';
+
+        for (const msg of messages) {
+            this.ctx.globalAlpha = Math.min(1, msg.life / 40);
+
+            const textWidth = this.ctx.measureText(msg.text).width + 20;
+
+            // Background
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillRect(this.canvas.width / 2 - textWidth / 2, y - 15, textWidth, 22);
+
+            // Text
+            this.ctx.fillStyle = msg.color;
+            this.ctx.fillText(msg.text, this.canvas.width / 2, y);
+
+            y -= 30;
+        }
+
+        this.ctx.globalAlpha = 1;
+        this.ctx.textAlign = 'left';
+    }
+
+    /**
+     * Draw movement destination indicator
+     */
+    drawDestination(destination) {
+        const dx = destination.x * TILE_SIZE + TILE_SIZE / 2;
+        const dy = destination.y * TILE_SIZE + TILE_SIZE / 2;
+
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.arc(dx, dy, 10, 0, Math.PI * 2);
+        this.ctx.stroke();
+    }
+
+    /**
+     * Draw facing tile indicator
+     */
+    drawFacingIndicator(gridX, gridY, facing) {
+        // Yellow square indicator removed as requested
+    }
+
+    /**
+     * Convert screen coordinates to world tile
+     */
+    screenToTile(screenX, screenY, camera, zoom) {
+        const worldX = (screenX / zoom) + camera.x;
+        const worldY = (screenY / zoom) + camera.y;
+
+        return {
+            x: Math.floor(worldX / TILE_SIZE),
+            y: Math.floor(worldY / TILE_SIZE)
+        };
+    }
+}
+
+export default Renderer;

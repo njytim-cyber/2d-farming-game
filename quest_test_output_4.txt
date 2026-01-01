@@ -1,0 +1,40 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+[1A[2K[chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+PAGE LOG: [vite] connecting...
+
+[1A[2KPAGE LOG: Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+
+[1A[2KPAGE LOG: [vite] connected.
+
+[1A[2K  1) [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword ΓöÇΓöÇ
+
+    [31mTest timeout of 30000ms exceeded.[39m
+
+    Error: page.click: Test timeout of 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('text=Start Farming')[22m
+
+
+      11 |         // Start New Game
+      12 |         // Character Creator - Start
+    > 13 |         await page.click('text=Start Farming');
+         |                    ^
+      14 |
+      15 |         // Wait for game to load
+      16 |         await page.waitForSelector('#gameCanvas');
+        at C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\tests\e2e\quest.spec.js:13:20
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\e2e-quest-Quest-System-should-find-old-man-and-get-sword-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\e2e-quest-Quest-System-should-find-old-man-and-get-sword-chromium\error-context.md
+
+
+[1A[2K  1 failed
+    [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword ΓöÇΓöÇΓöÇ
+
+[36m  Serving HTML report at http://localhost:50704. Press Ctrl+C to quit.[39m

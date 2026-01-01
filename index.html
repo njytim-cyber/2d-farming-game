@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="A cozy farming simulation RPG game">
+    <meta name="theme-color" content="#4caf50">
+    <title>Farming Sim RPG</title>
+</head>
+
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD Layer -->
+    <div id="ui-layer" class="ui-layer">
+        <div class="stats-container">
+            <div class="stat-group">
+                <div class="stat-pill stat-pill--energy">
+                    <div class="energy-label">
+                        <span>ENERGY</span>
+                        <span id="ui-energy-text">300/300</span>
+                    </div>
+                    <div class="energy-track">
+                        <div id="ui-energy-bar" class="energy-fill"></div>
+                    </div>
+                </div>
+
+                <div class="stat-pill stat-pill--energy" style="margin-top:5px; background:rgba(0,0,0,0.6);">
+                    <div class="energy-label">
+                        <span style="color:#ef5350;">HEALTH</span>
+                        <span id="ui-health-text">100/100</span>
+                    </div>
+                    <div class="energy-track">
+                        <div id="ui-health-bar" class="energy-fill" style="background:var(--accent); width:100%;"></div>
+                    </div>
+                </div>
+
+                <div class="stat-row">
+                    <div class="stat-pill">
+                        <span id="ui-season-icon">🌸</span>
+                        <strong id="ui-season-name">SPRING</strong>
+                    </div>
+                    <div class="stat-pill">
+                        <span id="ui-time-icon">🕒</span>
+                        <strong id="ui-time">06:00</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
+                <div id="save-indicator" class="stat-pill save-indicator" style="padding: 8px;">💾</div>
+                <div class="stat-pill stat-pill--money">
+                    <span>BANK</span>
+                    <strong id="ui-money" class="stat-pill__value">$100</strong>
+                </div>
+                <div class="stat-pill">
+                    <span style="font-size:12px; color:#aaa;">DAY</span>
+                    <strong id="ui-day">1</strong>
+                </div>
+                <button id="btn-profile" class="stat-pill" style="padding: 5px 10px; cursor: pointer;">👤</button>
+            </div>
+        </div>
+
+        <div class="zoom-controls">
+            <button class="zoom-btn">+</button>
+            <button class="zoom-btn">-</button>
+        </div>
+
+        <button id="fab-action" class="fab-action">ACT</button>
+
+        <div class="inventory-container">
+            <div id="inventory-scroll" class="inventory-scroll"></div>
+        </div>
+    </div>
+
+    <!-- Creator Modal -->
+    <div id="creator-modal" class="modal-overlay modal-overlay--active">
+        <div class="modal-panel" id="start-panel-content"></div>
+    </div>
+
+    <!-- House Modal -->
+    <div id="house-modal" class="modal-overlay">
+        <div class="modal-panel">
+            <div class="modal-title">Home Sweet Home</div>
+            <div style="font-size: 40px; margin: 20px 0;">🏠</div>
+            <div style="margin-bottom: 20px; font-size: 14px; color: #ccc;">
+                It's warm and cozy inside.<br>What would you like to do?
+            </div>
+            <button class="btn btn--start">Sleep (Restore Energy)</button>
+            <button class="btn btn--secondary">Leave House</button>
+        </div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div id="shop-modal" class="modal-overlay">
+        <div class="modal-panel">
+            <button class="btn btn--back">←</button>
+            <button class="btn btn--close">×</button>
+            <div class="modal-title">Mega Seed Market</div>
+            <div class="modal-scroll">
+                <div class="shop-list" id="shop-items"></div>
+                <div class="sell-section">
+                    <div class="sell-section__title">SELL ITEMS (Tap to sell)</div>
+                    <div id="sell-list" class="sell-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equipment Modal -->
+    <div id="equipment-modal" class="modal-overlay"></div>
+
+    <!-- Dialogue Modal -->
+    <div id="dialogue-modal" class="modal-overlay" style="align-items: flex-end; justify-content: center;">
+        <div class="modal-panel" style="width: 80%; max-width: 600px; margin-bottom: 50px; text-align: left;">
+            <div id="dialogue-text" style="font-size: 18px; line-height: 1.5; margin-bottom: 20px;">Hello there!</div>
+            <button class="btn btn--start" id="dialogue-next">Next ▼</button>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

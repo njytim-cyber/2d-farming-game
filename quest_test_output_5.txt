@@ -1,0 +1,45 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+[1A[2K[chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+PAGE LOG: [vite] connecting...
+
+[1A[2KPAGE LOG: [vite] connected.
+
+[1A[2K  1) [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword ΓöÇΓöÇ
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveClass[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('#dialogue-modal')
+    Expected pattern: [32m/modal-overlay--active/[39m
+    Received string:  [31m"modal-overlay"[39m
+    Timeout: 5000ms
+
+    Call log:
+    [2m  - Expect "toHaveClass" with timeout 5000ms[22m
+    [2m  - waiting for locator('#dialogue-modal')[22m
+    [2m    8 ├ù locator resolved to <div id="dialogue-modal" class="modal-overlay">ΓÇª</div>[22m
+    [2m      - unexpected value "modal-overlay"[22m
+
+
+      37 |         // Check Dialogue is visible
+      38 |         const dialogue = page.locator('#dialogue-modal');
+    > 39 |         await expect(dialogue).toHaveClass(/modal-overlay--active/);
+         |                                ^
+      40 |
+      41 |         const text = await page.locator('#dialogue-text').innerText();
+      42 |         expect(text).toContain('dangerous to go alone');
+        at C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\tests\e2e\quest.spec.js:39:32
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\e2e-quest-Quest-System-should-find-old-man-and-get-sword-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\e2e-quest-Quest-System-should-find-old-man-and-get-sword-chromium\error-context.md
+
+
+[1A[2K  1 failed
+    [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword ΓöÇΓöÇΓöÇ
+
+[36m  Serving HTML report at http://localhost:51364. Press Ctrl+C to quit.[39m

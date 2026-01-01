@@ -1,0 +1,15 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+[1A[2K[chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+PAGE LOG: [vite] connecting...
+
+[1A[2KPAGE LOG: [vite] connected.
+
+[1A[2K  1 passed (4.3s)
+
+To open last HTML report run:
+[36m[39m
+[36m  npx playwright show-report[39m
+[36m[39m

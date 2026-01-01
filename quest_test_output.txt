@@ -1,0 +1,29 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] ΓÇ║ tests\e2e\quest.spec.js:8:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+[1A[2K  1) [chromium] ΓÇ║ tests\e2e\quest.spec.js:8:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword ΓöÇΓöÇΓöÇ
+
+    Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:8080/
+    Call log:
+    [2m  - navigating to "http://localhost:8080/", waiting until "load"[22m
+
+
+      3 | test.describe('Quest System', () => {
+      4 |     test.beforeEach(async ({ page }) => {
+    > 5 |         await page.goto('http://localhost:8080');
+        |                    ^
+      6 |     });
+      7 |
+      8 |     test('should find old man and get sword', async ({ page }) => {
+        at C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\tests\e2e\quest.spec.js:5:20
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\e2e-quest-Quest-System-should-find-old-man-and-get-sword-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+
+[1A[2K  1 failed
+    [chromium] ΓÇ║ tests\e2e\quest.spec.js:8:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword ΓöÇΓöÇΓöÇΓöÇ
+
+[36m  Serving HTML report at http://localhost:63448. Press Ctrl+C to quit.[39m

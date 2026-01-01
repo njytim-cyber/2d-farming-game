@@ -1,0 +1,33 @@
+
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+[1A[2K[chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword
+PAGE LOG: [vite] connecting...
+
+[1A[2KPAGE LOG: [vite] connected.
+
+[1A[2KPAGE LOG: Player Pos: 30 31
+
+[1A[2K  1) [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword ΓöÇΓöÇ
+
+    Error: page.evaluate: TypeError: Cannot read properties of undefined (reading 'npcs')
+        at eval (eval at evaluate (:290:30), <anonymous>:4:56)
+        at UtilityScript.evaluate (<anonymous>:292:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at eval (eval at evaluate (:290:30), <anonymous>:4:56)
+        at UtilityScript.evaluate (<anonymous>:292:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\tests\e2e\quest.spec.js:58:24
+
+    attachment #1: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\e2e-quest-Quest-System-should-find-old-man-and-get-sword-chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\e2e-quest-Quest-System-should-find-old-man-and-get-sword-chromium\error-context.md
+
+
+[1A[2K  1 failed
+    [chromium] ΓÇ║ tests\e2e\quest.spec.js:10:5 ΓÇ║ Quest System ΓÇ║ should find old man and get sword ΓöÇΓöÇΓöÇ
+
+[36m  Serving HTML report at http://localhost:58358. Press Ctrl+C to quit.[39m

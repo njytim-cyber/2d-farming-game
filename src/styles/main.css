@@ -1,0 +1,678 @@
+/**
+ * Main Styles - Farming Sim RPG
+ */
+
+@import './variables.css';
+
+/* ===== Reset & Base ===== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-dark);
+    color: white;
+    font-family: var(--font-family);
+    overflow: hidden;
+    touch-action: none;
+    width: 100vw;
+    height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* ===== Canvas ===== */
+#gameCanvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: var(--z-canvas);
+}
+
+/* ===== UI Layer ===== */
+.ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: var(--z-ui);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* ===== Stats Container ===== */
+.stats-container {
+    padding: 15px var(--space-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: none;
+}
+
+.stat-group {
+    display: flex;
+    gap: var(--space-md);
+    flex-direction: column;
+}
+
+.stat-row {
+    display: flex;
+    gap: var(--space-md);
+}
+
+/* ===== Stat Pill ===== */
+.stat-pill {
+    background: var(--dark-glass);
+    padding: var(--space-sm) var(--space-lg);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    box-shadow: var(--shadow-md);
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    color: #eee;
+}
+
+.stat-pill strong {
+    color: #fff;
+    font-size: var(--font-size-lg);
+}
+
+.stat-pill--money .stat-pill__value {
+    color: var(--money-color) !important;
+}
+
+/* ===== Energy Pill ===== */
+.stat-pill--energy {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-xs);
+    min-width: 120px;
+}
+
+.energy-label {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    color: #ccc;
+}
+
+.energy-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.energy-fill {
+    height: 100%;
+    background: var(--energy-color);
+    width: 100%;
+    transition: width var(--transition-smooth);
+}
+
+.energy-fill--low {
+    background: var(--energy-low);
+}
+
+.energy-fill--medium {
+    background: var(--energy-medium);
+}
+
+/* ===== Save Indicator ===== */
+.save-indicator {
+    opacity: 0;
+    transition: opacity 0.5s;
+    font-size: var(--font-size-xl);
+}
+
+.save-indicator--active {
+    opacity: 1;
+}
+
+/* ===== Zoom Controls ===== */
+.zoom-controls {
+    position: absolute;
+    top: 130px;
+    right: var(--space-xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    pointer-events: auto;
+}
+
+.zoom-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--dark-glass);
+    border: 1px solid var(--border);
+    color: white;
+    font-size: var(--font-size-xl);
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.zoom-btn:active {
+    transform: scale(0.95);
+    background: #333;
+}
+
+/* ===== Inventory ===== */
+.inventory-container {
+    pointer-events: auto;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0));
+    padding: 0 0 var(--space-xl) 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.inventory-scroll {
+    width: 95%;
+    max-width: 600px;
+    display: flex;
+    gap: var(--space-md);
+    overflow-x: auto;
+    padding: var(--space-md) 5px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.inventory-scroll::-webkit-scrollbar {
+    display: none;
+}
+
+/* ===== Inventory Slot ===== */
+.slot {
+    flex: 0 0 64px;
+    height: 64px;
+    background: var(--dark-glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-base) cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: pointer;
+}
+
+.slot:hover {
+    border-color: var(--border-hover);
+}
+
+.slot--selected {
+    border-color: var(--accent);
+    background: rgba(255, 183, 77, 0.15);
+    transform: translateY(-8px);
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.3);
+}
+
+.slot__icon {
+    font-size: 28px;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
+}
+
+.slot__count {
+    position: absolute;
+    bottom: var(--space-xs);
+    right: var(--space-xs);
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    font-size: var(--font-size-xs);
+    padding: 1px 5px;
+    border-radius: var(--space-sm);
+    font-weight: bold;
+}
+
+/* ===== FAB Action Button ===== */
+.fab-action {
+    position: absolute;
+    bottom: 110px;
+    right: var(--space-xl);
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-2xl);
+    background: linear-gradient(135deg, #66bb6a, #43a047);
+    border: none;
+    box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
+    color: white;
+    font-weight: 800;
+    font-size: var(--font-size-lg);
+    pointer-events: auto;
+    z-index: var(--z-fab);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.fab-action:active {
+    transform: scale(0.95);
+}
+
+/* ===== Modal ===== */
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity var(--transition-slow), visibility var(--transition-slow);
+}
+
+.modal-overlay--active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.modal-panel {
+    background: var(--bg-card);
+    border: 1px solid #333;
+    border-radius: var(--radius-xl);
+    padding: var(--space-2xl);
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-xl);
+    text-align: center;
+}
+
+.modal-title {
+    font-size: var(--font-size-2xl);
+    color: var(--primary);
+    margin-bottom: var(--space-xl);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+
+.modal-scroll {
+    overflow-y: auto;
+    padding-right: 5px;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ===== Shop ===== */
+.shop-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-xl);
+}
+
+.shop-card {
+    background: var(--bg-card-hover);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid #333;
+}
+
+.shop-card__icon {
+    font-size: 24px;
+}
+
+.shop-card__name {
+    margin: 5px 0;
+    font-size: var(--font-size-base);
+    color: #ddd;
+}
+
+.shop-card__meta {
+    font-size: var(--font-size-xs);
+    color: #888;
+    margin-bottom: 5px;
+}
+
+.shop-card__seasons {
+    font-size: 14px;
+    margin: 2px 0;
+    min-height: 20px;
+}
+
+.shop-card--in-season {
+    border-color: #4caf50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.1);
+}
+
+.shop-card--in-season .shop-card__price {
+    color: #4caf50;
+}
+
+.shop-card--out-season {
+    border-color: #ef5350;
+    opacity: 0.7;
+}
+
+.shop-card--out-season .shop-card__icon,
+.shop-card--out-season .shop-card__name {
+    opacity: 0.5;
+}
+
+.shop-card--out-season .shop-card__price {
+    color: #ef5350;
+}
+
+.shop-card--out-season .btn--buy {
+    background: #333;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.shop-card__price {
+    color: var(--money-color);
+    font-weight: bold;
+}
+
+/* ===== Buttons ===== */
+.btn {
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn--buy {
+    margin-top: auto;
+    background: #5c6bc0;
+    color: white;
+    padding: 6px var(--space-md);
+    width: 100%;
+    font-size: var(--font-size-sm);
+}
+
+.btn--close {
+    position: absolute;
+    top: var(--space-xl);
+    right: var(--space-xl);
+    background: transparent;
+    border: none;
+    color: #666;
+    font-size: 24px;
+    z-index: 5;
+    cursor: pointer;
+}
+
+.btn--back {
+    position: absolute;
+    top: var(--space-xl);
+    left: var(--space-xl);
+    background: transparent;
+    border: none;
+    color: #666;
+    font-size: 24px;
+    z-index: 5;
+    cursor: pointer;
+}
+
+.btn--reset {
+    margin-top: var(--space-xl);
+    background: #333;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: var(--space-md);
+    width: 100%;
+    font-size: var(--font-size-sm);
+    flex-shrink: 0;
+}
+
+.btn--start {
+    background: var(--primary);
+    color: white;
+    padding: 15px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xl);
+    margin-top: 15px;
+}
+
+.btn--secondary {
+    background: #444;
+    color: white;
+    padding: 15px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-lg);
+    margin-top: var(--space-md);
+}
+
+/* ===== Character Creator ===== */
+#previewCanvas {
+    width: 120px !important;
+    height: 120px !important;
+    max-width: 120px;
+    max-height: 120px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+.cc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 5px 0;
+    background: #252525;
+    padding: 5px 10px;
+    border-radius: var(--space-sm);
+}
+
+.cc-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    margin-left: 5px;
+    border: 2px solid #444;
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.cc-swatch:hover {
+    transform: scale(1.1);
+}
+
+.cc-swatch--selected {
+    border-color: var(--accent);
+}
+
+
+.cc-input {
+    background: #333;
+    border: 1px solid #555;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    width: 140px;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.gender-toggle {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-gender {
+    background: #444;
+    border: 1px solid #555;
+    color: #aaa;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-gender.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.cc-sep {
+    height: 1px;
+    background: #444;
+    margin: 10px 0;
+}
+
+/* ===== Sell List ===== */
+.sell-section {
+    border-top: 1px solid #444;
+    padding-top: var(--space-md);
+    text-align: left;
+}
+
+.sell-section__title {
+    color: #888;
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--space-md);
+}
+
+.sell-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+}
+
+.sell-chip {
+    background: #333;
+    border: 1px solid #555;
+    color: white;
+    padding: 5px var(--space-md);
+    border-radius: 15px;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.sell-chip:hover {
+    background: #444;
+}
+
+/* ===== Equipment ===== */
+.equipment-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.equipment-row {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.equipment-slot {
+    width: 60px;
+    height: 60px;
+    background: #333;
+    border: 2px solid #555;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.equipment-slot:hover {
+    border-color: var(--accent);
+    background: #444;
+}
+
+.equipment-slot--weapon {
+    border-color: #ef5350;
+}
+
+.equipment-slot--armor {
+    border-color: #42a5f5;
+}
+
+.equipment-stats {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 5px 0;
+    font-size: 14px;
+    color: #ccc;
+}
+
+/* ===== Tooltip ===== */
+.tooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid #666;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 2000;
+    white-space: pre-line;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    display: none;
+    max-width: 250px;
+}
+
+.tooltip__title {
+    color: var(--accent);
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.tooltip__desc {
+    color: #bbb;
+    font-size: 12px;
+}
