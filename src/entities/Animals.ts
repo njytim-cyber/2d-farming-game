@@ -3,11 +3,26 @@
  * Handles animal behavior, production, and management
  */
 
-import { TILE_SIZE } from '../game/constants.js';
-import { isSolid } from './MapGenerator.js';
+import { TILE_SIZE } from '../game/constants';
+import { isSolid } from '../systems/MapGenerator';
+import { CropConfig } from '../game/constants';
+
+interface AnimalDef {
+    name: string;
+    cost: number;
+    product: string | null;
+    productChance?: number;
+    productValue?: number;
+    maxFriendship?: number;
+    friendshipGain?: number;
+    color: string;
+    size: number;
+    isPet?: boolean;
+    happinessBonus?: number;
+}
 
 // Animal type definitions
-export const ANIMAL_TYPES = {
+export const ANIMAL_TYPES: Record<string, AnimalDef> = {
     chicken: {
         name: 'Chicken',
         cost: 200,
@@ -61,11 +76,33 @@ export const ANIMAL_TYPES = {
     }
 };
 
+interface MoveTarget {
+    x: number;
+    y: number;
+}
+
 /**
  * Animal class
  */
 export class Animal {
-    constructor(type, homeX, homeY, homeBuildingId = null) {
+    id: number;
+    type: string;
+    homeX: number;
+    homeY: number;
+    homeBuildingId: number | null;
+    x: number;
+    y: number;
+    visX: number;
+    visY: number;
+    hunger: boolean;
+    friendship: number;
+    wasFedToday: boolean;
+    producedToday: boolean;
+    isMoving: boolean;
+    moveTarget: MoveTarget | null;
+    moveTimer: number;
+
+    constructor(type: string, homeX: number, homeY: number, homeBuildingId: number | null = null) {
         this.id = Date.now() + Math.random();
         this.type = type;
         this.homeX = homeX;
@@ -93,7 +130,7 @@ export class Animal {
     /**
      * Update animal each frame
      */
-    update(map, crops, SEEDS) {
+    update(map: number[][], crops: Record<string, any>, SEEDS: Record<string, CropConfig>) {
         // Random movement
         this.moveTimer--;
         if (this.moveTimer <= 0 && !this.isMoving) {
@@ -125,7 +162,7 @@ export class Animal {
     /**
      * Try to move to a random adjacent tile
      */
-    tryRandomMove(map, crops, SEEDS) {
+    tryRandomMove(map: number[][], crops: Record<string, any>, SEEDS: Record<string, CropConfig>) {
         const animalDef = ANIMAL_TYPES[this.type];
         const wanderRadius = animalDef?.isPet ? 5 : 2; // Pets wander further
 
@@ -156,14 +193,14 @@ export class Animal {
     /**
      * Feed this animal
      */
-    feed() {
+    feed(): boolean {
         if (this.wasFedToday) return false;
 
         this.hunger = false;
         this.wasFedToday = true;
         this.friendship = Math.min(
-            this.friendship + ANIMAL_TYPES[this.type].friendshipGain,
-            ANIMAL_TYPES[this.type].maxFriendship
+            this.friendship + (ANIMAL_TYPES[this.type].friendshipGain || 0),
+            ANIMAL_TYPES[this.type].maxFriendship || 100
         );
         return true;
     }
@@ -174,7 +211,7 @@ export class Animal {
     pet() {
         this.friendship = Math.min(
             this.friendship + 5,
-            ANIMAL_TYPES[this.type].maxFriendship
+            ANIMAL_TYPES[this.type].maxFriendship || 100
         );
     }
 
@@ -182,7 +219,7 @@ export class Animal {
      * Check if animal produces today
      * @returns {string|null} Product type or null
      */
-    checkProduction() {
+    checkProduction(): string | null {
         if (this.producedToday) return null;
 
         const def = ANIMAL_TYPES[this.type];
@@ -191,8 +228,9 @@ export class Animal {
         // Check if fed and friendship affects chance
         if (this.hunger) return null;
 
-        const friendshipBonus = this.friendship / def.maxFriendship * 0.2; // Up to 20% bonus
-        const chance = def.productChance + friendshipBonus;
+        const maxFriendship = def.maxFriendship || 100;
+        const friendshipBonus = (this.friendship / maxFriendship) * 0.2; // Up to 20% bonus
+        const chance = (def.productChance || 0) + friendshipBonus;
 
         if (Math.random() < chance) {
             this.producedToday = true;
@@ -237,7 +275,7 @@ export class Animal {
     /**
      * Create from saved data
      */
-    static deserialize(data) {
+    static deserialize(data: any): Animal {
         const animal = new Animal(data.type, data.homeX, data.homeY, data.homeBuildingId);
         animal.id = data.id;
         animal.x = data.x;
@@ -255,7 +293,7 @@ export class Animal {
 /**
  * Draw an animal
  */
-export function drawAnimal(ctx, animal) {
+export function drawAnimal(ctx: CanvasRenderingContext2D, animal: Animal) {
     const def = ANIMAL_TYPES[animal.type];
     if (!def) return;
 

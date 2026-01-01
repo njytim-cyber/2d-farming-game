@@ -18,6 +18,8 @@ export default [
                 setInterval: 'readonly',
                 clearTimeout: 'readonly',
                 clearInterval: 'readonly',
+                performance: 'readonly',
+                location: 'readonly',
             }
         },
         rules: {

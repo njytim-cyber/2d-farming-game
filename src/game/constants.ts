@@ -3,6 +3,51 @@
  * All magic numbers and game data in one place
  */
 
+// === Types ===
+export interface Palette {
+    [key: string]: string;
+}
+
+export interface CropConfig {
+    name: string;
+    cost: number;
+    sell: number;
+    grow: number;
+    color: string;
+    seasons: number[];
+    regrowable?: boolean;
+    regrowStage?: number;
+    isFlower?: boolean;
+    isTrellis?: boolean;
+    isSolid?: boolean;
+    isTree?: boolean;
+    regrow?: number;
+}
+
+export interface ItemConfig {
+    name: string;
+    type: string;
+    attack: number;
+    cost: number;
+    sell: number;
+}
+
+export interface ResourceYield {
+    [key: string]: number;
+}
+
+export interface ResourceConfig {
+    toughness: number;
+    yield: ResourceYield;
+    energyCost: number;
+    color: string;
+    name: string;
+}
+
+export interface TileMap {
+    [key: string]: number;
+}
+
 // === Rendering ===
 export const TILE_SIZE = 50;
 export const MOVEMENT_SPEED = 400; // Pixels per second
@@ -21,7 +66,7 @@ export const DAY_START_HOUR = 6;  // 6:00 AM
 export const DAY_DURATION_HOURS = 20; // 6AM to 2AM
 
 // === Energy Costs ===
-export const ENERGY_COST = {
+export const ENERGY_COST: { [key: string]: number } = {
     CHOP_TREE: 8,
     MINE_STONE: 8,
     TILL_SOIL: 4,
@@ -30,7 +75,7 @@ export const ENERGY_COST = {
 };
 
 // === Palette (Normalized Endesga-style) ===
-export const PALETTE = {
+export const PALETTE: Palette = {
     grass: '#7dbb6f',
     grass_dark: '#5a9653',
     soil: '#96745f',
@@ -69,7 +114,7 @@ export const SEASONS = ['Spring', 'Summer', 'Fall', 'Winter'];
 export const SEASON_ICONS = ['🌸', '☀️', '🍂', '❄️'];
 export const DAYS_PER_SEASON = 28;
 
-export const SEASON_COLORS = {
+export const SEASON_COLORS: { [key: string]: { grass: string; tree: string } } = {
     Spring: { grass: PALETTE.grass, tree: PALETTE.leaf_dark },
     Summer: { grass: '#88bc7b', tree: '#46833b' },
     Fall: { grass: '#b1a569', tree: '#9e4539' },
@@ -81,7 +126,7 @@ export const WEATHER_TYPES = ['Sunny', 'Rain'];
 export const RAIN_CHANCE = 0.2;
 
 // === Tile Types ===
-export const TILES = {
+export const TILES: TileMap = {
     GRASS: 0,
     SOIL: 1,
     TREE: 2,
@@ -96,7 +141,7 @@ export const TILES = {
 };
 
 // === Interior Tile Types ===
-export const INTERIOR_TILES = {
+export const INTERIOR_TILES: TileMap = {
     FLOOR: 10,
     WALL: 11,
     DOOR: 12,
@@ -115,7 +160,7 @@ export const INTERIOR_TILES = {
 
 // === Seeds & Crops ===
 // Seasons: 0=Spring, 1=Summer, 2=Fall, 3=Winter
-export const SEEDS = {
+export const SEEDS: { [key: string]: CropConfig } = {
     // =====================
     // === SPRING CROPS ===
     // =====================
@@ -185,7 +230,7 @@ export const SEEDS = {
 };
 
 // === Items ===
-export const ITEMS = {
+export const ITEMS: { [key: string]: ItemConfig } = {
     WOODEN_SWORD: { name: 'Wooden Sword', type: 'weapon', attack: 5, cost: 0, sell: 10 }
 };
 
@@ -195,13 +240,13 @@ export const NPC_IDS = {
 };
 
 // === Resource Values ===
-export const RESOURCE_VALUES = {
+export const RESOURCE_VALUES: { [key: string]: number } = {
     wood: 5,
     stone: 8
 };
 
 // === Resource Types (Variable HP/Yield) ===
-export const RESOURCE_TYPES = {
+export const RESOURCE_TYPES: { [key: string]: ResourceConfig } = {
     // Trees
     TREE: { toughness: 1, yield: { wood: 3 }, energyCost: 4, color: PALETTE.leaf_dark, name: 'Tree' },
     OAK: { toughness: 3, yield: { wood: 10 }, energyCost: 8, color: PALETTE.leaf_dark, name: 'Oak Tree' },

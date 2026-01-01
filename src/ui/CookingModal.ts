@@ -3,11 +3,25 @@
  * UI for cooking at the stove
  */
 
-import { RECIPES, CONSUMABLES, BUFF_TYPES, canCraft, craft } from '../systems/Recipes.js';
-import { SEEDS } from '../game/constants.js';
+import { RECIPES, CONSUMABLES, BUFF_TYPES, canCraft, craft } from '../systems/Recipes';
+import { SEEDS } from '../game/constants';
+import { Inventory } from '../systems/Inventory'; // Import Inventory type
+
+interface CookingCallbacks {
+    onCook?: (recipeKey: string) => void;
+    onConsume?: (slotIdx: number) => void;
+    onClose?: () => void;
+}
 
 export class CookingModal {
-    constructor(uiManager, callbacks = {}) {
+    uiManager: any;
+    onCook: (recipeKey: string) => void;
+    onConsume: (slotIdx: number) => void;
+    onClose: () => void;
+    modal: HTMLElement | null;
+    inventory: Inventory | null;
+
+    constructor(uiManager: any, callbacks: CookingCallbacks = {}) {
         this.uiManager = uiManager;
         this.onCook = callbacks.onCook || (() => { });
         this.onConsume = callbacks.onConsume || (() => { });
@@ -22,16 +36,17 @@ export class CookingModal {
     setupModal() {
         if (!this.modal) return;
 
-        const closeBtn = this.modal.querySelector('.btn--close');
+        const closeBtn = this.modal.querySelector('.btn--close') as HTMLElement;
         if (closeBtn) {
             closeBtn.onclick = () => this.hide();
         }
     }
 
-    show(inventory) {
+    show(inventory: Inventory) {
         this.inventory = inventory;
         this.render();
         this.modal?.classList.add('modal-overlay--active');
+        this.bindEvents(); // Bind events after rendering/showing to ensure elements exist
     }
 
     hide() {
@@ -52,23 +67,28 @@ export class CookingModal {
         if (foodList) {
             foodList.innerHTML = this.renderCookedFoods();
         }
+
+        // Re-bind events after re-rendering contents
+        this.bindEvents();
     }
 
-    renderRecipes() {
+    renderRecipes(): string {
+        if (!this.inventory) return '';
+
         const stoveRecipes = Object.entries(RECIPES)
-            .filter(([key, recipe]) => recipe.requiredStation === 'stove');
+            .filter(([, recipe]) => recipe.requiredStation === 'stove');
 
         if (stoveRecipes.length === 0) {
             return '<div class="cooking-empty">No recipes available</div>';
         }
 
         return stoveRecipes.map(([key, recipe]) => {
-            const canMake = canCraft(this.inventory, key);
+            const canMake = canCraft(this.inventory!, key);
             const ingredients = Object.entries(recipe.inputs)
                 .map(([item, count]) => {
                     const seedData = SEEDS[item];
                     const name = seedData ? seedData.name : item;
-                    const hasEnough = this.inventory.countItem(item) >= count;
+                    const hasEnough = this.inventory!.countItem(item) >= count;
                     return `<span class="${hasEnough ? 'has-item' : 'missing-item'}">${count}x ${name}</span>`;
                 })
                 .join(' + ');
@@ -91,7 +111,9 @@ export class CookingModal {
         }).join('');
     }
 
-    renderCookedFoods() {
+    renderCookedFoods(): string {
+        if (!this.inventory) return '';
+
         // Find cooked foods in inventory
         const cookedFoods = this.inventory.slots
             .map((slot, idx) => ({ slot, idx }))
@@ -102,6 +124,7 @@ export class CookingModal {
         }
 
         return cookedFoods.map(({ slot, idx }) => {
+            if (!slot) return '';
             const consumable = CONSUMABLES[slot.name];
             const buffInfo = consumable?.buff ?
                 `<div class="food-buff">${BUFF_TYPES[consumable.buff.type]?.icon || '✨'} ${BUFF_TYPES[consumable.buff.type]?.name}</div>` : '';
@@ -124,9 +147,10 @@ export class CookingModal {
 
         // Cook buttons
         this.modal.querySelectorAll('.btn--cook').forEach(btn => {
-            btn.onclick = (e) => {
-                const recipeKey = e.target.dataset.recipe;
-                if (craft(this.inventory, recipeKey)) {
+            (btn as HTMLElement).onclick = (e) => {
+                const target = e.target as HTMLElement;
+                const recipeKey = target.dataset.recipe;
+                if (recipeKey && this.inventory && craft(this.inventory, recipeKey)) {
                     this.onCook(recipeKey);
                     this.render();
                 }
@@ -135,8 +159,9 @@ export class CookingModal {
 
         // Eat buttons
         this.modal.querySelectorAll('.btn--eat').forEach(btn => {
-            btn.onclick = (e) => {
-                const slotIdx = parseInt(e.target.dataset.slot);
+            (btn as HTMLElement).onclick = (e) => {
+                const target = e.target as HTMLElement;
+                const slotIdx = parseInt(target.dataset.slot || '0');
                 this.onConsume(slotIdx);
                 this.render();
             };

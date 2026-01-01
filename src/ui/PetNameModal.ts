@@ -4,7 +4,10 @@
  */
 
 export class PetNameModal {
-    constructor(uiManager, onConfirm) {
+    uiManager: any;
+    onConfirm: (name: string) => void;
+
+    constructor(uiManager: any, onConfirm: (name: string) => void) {
         this.uiManager = uiManager;
         this.onConfirm = onConfirm;
     }
@@ -16,9 +19,13 @@ export class PetNameModal {
         // Let's stick to UIManager having a helper or just manipulating DOM directly for this specific one-off event
 
         const overlay = document.getElementById('creator-modal'); // Reuse this overlay
+        if (!overlay) return;
+
         overlay.classList.add('modal-overlay--active');
 
         const content = document.getElementById('start-panel-content');
+        if (!content) return;
+
         content.innerHTML = `
             <div class="modal-title">A stray dog appears!</div>
             <div style="font-size:40px; margin:20px;">🐕</div>
@@ -27,13 +34,16 @@ export class PetNameModal {
             <button id="btn-adopt" class="btn btn--start">Adopt</button>
         `;
 
-        const input = document.getElementById('pet-name-input');
-        input.focus();
+        const input = document.getElementById('pet-name-input') as HTMLInputElement;
+        if (input) input.focus();
 
-        document.getElementById('btn-adopt').onclick = () => {
-            const name = input.value.trim() || 'Dog';
-            overlay.classList.remove('modal-overlay--active');
-            this.onConfirm(name);
-        };
+        const btnAdopt = document.getElementById('btn-adopt');
+        if (btnAdopt) {
+            btnAdopt.onclick = () => {
+                const name = input ? (input.value.trim() || 'Dog') : 'Dog';
+                overlay.classList.remove('modal-overlay--active');
+                this.onConfirm(name);
+            };
+        }
     }
 }

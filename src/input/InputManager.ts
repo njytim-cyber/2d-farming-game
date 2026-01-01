@@ -3,9 +3,32 @@
  * Handles keyboard, mouse, and touch input
  */
 
-import { MAP_WIDTH, MAP_HEIGHT } from '../game/constants.js';
+import { MAP_WIDTH, MAP_HEIGHT } from '../game/constants';
+
+type MoveCallback = (dx: number, dy: number) => void;
+type ActionCallback = () => void;
+type ClickCallback = (tileX: number, tileY: number) => void;
+type ZoomCallback = (delta: number) => void;
+
+interface InputCallbacks {
+    move: MoveCallback[];
+    action: ActionCallback[];
+    click: ClickCallback[];
+    zoom: ZoomCallback[];
+}
 
 export class InputManager {
+    callbacks: InputCallbacks;
+    enabled: boolean;
+    boundHandlers: {
+        keydown?: (e: KeyboardEvent) => void;
+        keyup?: (e: KeyboardEvent) => void;
+        wheel?: (e: WheelEvent) => void;
+    };
+    heldKeys: Set<string>;
+    moveDirection: { x: number; y: number };
+    moveInterval: number | null;
+
     constructor() {
         this.callbacks = {
             move: [],
@@ -34,9 +57,9 @@ export class InputManager {
         this.boundHandlers.keyup = this.handleKeyup.bind(this);
         this.boundHandlers.wheel = this.handleWheel.bind(this);
 
-        window.addEventListener('keydown', this.boundHandlers.keydown);
-        window.addEventListener('keyup', this.boundHandlers.keyup);
-        window.addEventListener('wheel', this.boundHandlers.wheel, { passive: true });
+        window.addEventListener('keydown', this.boundHandlers.keydown!);
+        window.addEventListener('keyup', this.boundHandlers.keyup!);
+        window.addEventListener('wheel', this.boundHandlers.wheel!, { passive: true });
     }
 
     /**
@@ -46,18 +69,21 @@ export class InputManager {
         if (!this.enabled) return;
         this.enabled = false;
 
-        window.removeEventListener('keydown', this.boundHandlers.keydown);
-        window.removeEventListener('keyup', this.boundHandlers.keyup);
-        window.removeEventListener('wheel', this.boundHandlers.wheel);
+        if (this.boundHandlers.keydown) window.removeEventListener('keydown', this.boundHandlers.keydown);
+        if (this.boundHandlers.keyup) window.removeEventListener('keyup', this.boundHandlers.keyup);
+        if (this.boundHandlers.wheel) window.removeEventListener('wheel', this.boundHandlers.wheel);
         this.heldKeys.clear();
         this.stopMoveInterval();
+
+        // Clear bound handlers to avoid memory leaks if re-enabled
+        this.boundHandlers = {};
     }
 
     /**
      * Register move callback
      * @param {Function} callback - (dx, dy) => void
      */
-    onMove(callback) {
+    onMove(callback: MoveCallback): () => void {
         this.callbacks.move.push(callback);
         return () => this.removeCallback('move', callback);
     }
@@ -66,7 +92,7 @@ export class InputManager {
      * Register action callback (interact)
      * @param {Function} callback - () => void
      */
-    onAction(callback) {
+    onAction(callback: ActionCallback): () => void {
         this.callbacks.action.push(callback);
         return () => this.removeCallback('action', callback);
     }
@@ -75,7 +101,7 @@ export class InputManager {
      * Register click callback
      * @param {Function} callback - (tileX, tileY) => void
      */
-    onClick(callback) {
+    onClick(callback: ClickCallback): () => void {
         this.callbacks.click.push(callback);
         return () => this.removeCallback('click', callback);
     }
@@ -84,7 +110,7 @@ export class InputManager {
      * Register zoom callback
      * @param {Function} callback - (delta) => void
      */
-    onZoom(callback) {
+    onZoom(callback: ZoomCallback): () => void {
         this.callbacks.zoom.push(callback);
         return () => this.removeCallback('zoom', callback);
     }
@@ -92,7 +118,7 @@ export class InputManager {
     /**
      * Remove a callback
      */
-    removeCallback(type, callback) {
+    removeCallback(type: keyof InputCallbacks, callback: any) {
         const idx = this.callbacks[type].indexOf(callback);
         if (idx > -1) {
             this.callbacks[type].splice(idx, 1);
@@ -102,7 +128,7 @@ export class InputManager {
     /**
      * Handle keyboard input
      */
-    handleKeydown(e) {
+    handleKeydown(e: KeyboardEvent) {
         const key = e.key.toLowerCase();
 
         // Track held movement keys
@@ -138,7 +164,7 @@ export class InputManager {
     /**
      * Handle key release
      */
-    handleKeyup(e) {
+    handleKeyup(e: KeyboardEvent) {
         const key = e.key.toLowerCase();
 
         if (key === 'w' || e.key === 'ArrowUp') this.heldKeys.delete('up');
@@ -188,17 +214,15 @@ export class InputManager {
     /**
      * Handle mouse wheel (zoom)
      */
-    handleWheel(e) {
+    handleWheel(e: WheelEvent) {
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
         this.callbacks.zoom.forEach(cb => cb(delta));
     }
 
     /**
      * Setup canvas pointer events
-     * @param {HTMLCanvasElement} canvas 
-     * @param {Function} screenToTileFn - (screenX, screenY) => {x, y}
      */
-    setupCanvasInput(canvas, screenToTileFn) {
+    setupCanvasInput(canvas: HTMLCanvasElement, screenToTileFn: (screenX: number, screenY: number) => { x: number, y: number }) {
         canvas.addEventListener('pointerdown', (e) => {
             if (!this.enabled) return;
 
@@ -217,9 +241,8 @@ export class InputManager {
 
     /**
      * Setup FAB button
-     * @param {HTMLElement} button 
      */
-    setupActionButton(button) {
+    setupActionButton(button: HTMLElement) {
         button.addEventListener('pointerdown', (e) => {
             if (!this.enabled) return;
 
@@ -234,10 +257,8 @@ export class InputManager {
 
     /**
      * Setup zoom buttons
-     * @param {HTMLElement} plusBtn 
-     * @param {HTMLElement} minusBtn 
      */
-    setupZoomButtons(plusBtn, minusBtn) {
+    setupZoomButtons(plusBtn: HTMLElement, minusBtn: HTMLElement) {
         plusBtn.addEventListener('click', () => {
             this.callbacks.zoom.forEach(cb => cb(0.1));
         });

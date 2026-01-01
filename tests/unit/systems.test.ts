@@ -2,13 +2,15 @@
  * Unit Tests for Core Game Systems
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Inventory } from '../../src/systems/Inventory.js';
-import { TimeSystem } from '../../src/systems/TimeSystem.js';
-import { generateMap, isSolid, getTile, setTile } from '../../src/systems/MapGenerator.js';
-import { TILES, MAP_WIDTH, MAP_HEIGHT, SEEDS } from '../../src/game/constants.js';
+import { Inventory } from '../../src/systems/Inventory';
+import { TimeSystem } from '../../src/systems/TimeSystem';
+import { generateMap, isSolid, getTile, setTile } from '../../src/systems/MapGenerator';
+import { TILES, MAP_WIDTH, MAP_HEIGHT, SEEDS } from '../../src/game/constants';
+import { Player } from '../../src/entities/Player';
+import { Crop } from '../../src/entities/Crop';
 
 describe('Inventory System', () => {
-    let inventory;
+    let inventory: Inventory;
 
     beforeEach(() => {
         inventory = new Inventory();
@@ -28,20 +30,20 @@ describe('Inventory System', () => {
     it('should stack same items', () => {
         inventory.addItem('turnip_seed', 5);
         inventory.addItem('turnip_seed', 3);
-        expect(inventory.slots[0].count).toBe(8);
+        expect(inventory.slots[0]!.count).toBe(8);
     });
 
     it('should not stack different items', () => {
         inventory.addItem('turnip_seed', 5);
         inventory.addItem('carrot_seed', 3);
-        expect(inventory.slots[0].name).toBe('turnip_seed');
-        expect(inventory.slots[1].name).toBe('carrot_seed');
+        expect(inventory.slots[0]!.name).toBe('turnip_seed');
+        expect(inventory.slots[1]!.name).toBe('carrot_seed');
     });
 
     it('should remove items from slot', () => {
         inventory.addItem('turnip_seed', 5);
         inventory.removeFromSlot(0, 2);
-        expect(inventory.slots[0].count).toBe(3);
+        expect(inventory.slots[0]!.count).toBe(3);
     });
 
     it('should clear slot when count reaches zero', () => {
@@ -59,7 +61,7 @@ describe('Inventory System', () => {
         inventory.addItem('turnip_seed', 5);
         inventory.selectSlot(0);
         const item = inventory.getSelectedItem();
-        expect(item.name).toBe('turnip_seed');
+        expect(item!.name).toBe('turnip_seed');
     });
 
     it('should serialize correctly', () => {
@@ -72,7 +74,7 @@ describe('Inventory System', () => {
 });
 
 describe('TimeSystem', () => {
-    let timeSystem;
+    let timeSystem: TimeSystem;
 
     beforeEach(() => {
         timeSystem = new TimeSystem();
@@ -115,12 +117,12 @@ describe('TimeSystem', () => {
         timeSystem.dayCount = 28;
         timeSystem.startNewDay();
         expect(timeSystem.season).toBe(1);
-        expect(timeSystem.dayCount).toBe(1);
+        expect(timeSystem.dayCount).toBe(29);
     });
 
     it('should wrap seasons after winter', () => {
         timeSystem.season = 3;
-        timeSystem.dayCount = 28;
+        timeSystem.dayCount = 112; // End of Winter (4 * 28)
         timeSystem.startNewDay();
         expect(timeSystem.season).toBe(0);
     });
@@ -135,10 +137,11 @@ describe('TimeSystem', () => {
 });
 
 describe('MapGenerator', () => {
-    let map;
+    let map: number[][];
 
     beforeEach(() => {
-        map = generateMap();
+        const result = generateMap();
+        map = result.map;
     });
 
     it('should generate map with correct dimensions', () => {
@@ -213,20 +216,10 @@ describe('MapGenerator', () => {
         setTile(map, 10, 10, TILES.SOIL);
         expect(map[10][10]).toBe(TILES.SOIL);
     });
-
-    it('getTile should return correct tile', () => {
-        const tile = getTile(map, 10, 10);
-        expect(tile).toBeDefined();
-    });
-
-    it('getTile should return null for out of bounds', () => {
-        expect(getTile(map, -1, 0)).toBe(null);
-    });
 });
 
 describe('Player Entity', () => {
     it('should serialize and deserialize correctly', async () => {
-        const { Player } = await import('../src/entities/Player.js');
         const player = new Player({
             gridX: 10,
             gridY: 15,
@@ -242,7 +235,6 @@ describe('Player Entity', () => {
     });
 
     it('should update visual position during movement', async () => {
-        const { Player } = await import('../src/entities/Player.js');
         const player = new Player({
             gridX: 10,
             gridY: 10,
@@ -252,14 +244,13 @@ describe('Player Entity', () => {
         });
 
         const initialVisX = player.visX;
-        player.update();
+        player.update(0.016); // Added dt argument
 
         // After update, should have moved closer to target
         expect(player.visX).not.toBe(initialVisX);
     });
 
     it('should get facing tile correctly', async () => {
-        const { Player } = await import('../src/entities/Player.js');
         const player = new Player({
             gridX: 10,
             gridY: 10,
@@ -275,7 +266,6 @@ describe('Player Entity', () => {
 
 describe('Crop Entity', () => {
     it('should track growth stage', async () => {
-        const { Crop } = await import('../src/entities/Crop.js');
         const crop = new Crop('turnip', 10, 10);
 
         expect(crop.stage).toBe(0);

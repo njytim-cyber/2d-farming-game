@@ -3,8 +3,8 @@
  */
 
 import './styles/main.css';
-import Game from './game/Game.js';
-import { getState } from './game/state.js';
+import Game from './game/Game';
+import { getState } from './game/state';
 
 // Start game when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,6 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
     game.init();
 
     // Expose for testing/debugging
-    window.game = game;
-    window.getState = getState;
+    (window as any).game = game;
+    (window as any).getState = getState;
 });

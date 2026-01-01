@@ -3,10 +3,18 @@
  * Handles character customization UI
  */
 
-import { COLORS } from '../game/constants.js';
+import { COLORS } from '../game/constants';
+import { Player } from '../entities/Player'; // Import Player type
 
 export class CreatorModal {
-    constructor(uiManager, onStart, onLoad) {
+    uiManager: any;
+    onStart: () => void;
+    onLoad: () => void;
+    player: Player | null;
+    previewCanvas: HTMLCanvasElement | null;
+    previewCtx: CanvasRenderingContext2D | null;
+
+    constructor(uiManager: any, onStart: () => void, onLoad: () => void) {
         this.uiManager = uiManager;
         this.onStart = onStart;
         this.onLoad = onLoad;
@@ -18,7 +26,7 @@ export class CreatorModal {
     /**
      * Show the creator screen
      */
-    show(player, hasSaveData) {
+    show(player: Player, hasSaveData: boolean) {
         this.player = player;
 
         if (hasSaveData) {
@@ -38,11 +46,18 @@ export class CreatorModal {
       <button class="btn btn--secondary" id="btn-new-game">New Game</button>
     `);
 
-        document.getElementById('btn-continue').onclick = (e) => {
-            e.target.blur();
-            this.onLoad();
-        };
-        document.getElementById('btn-new-game').onclick = () => this.showCreatorScreen();
+        const btnContinue = document.getElementById('btn-continue');
+        if (btnContinue) {
+            btnContinue.onclick = (e) => {
+                (e.target as HTMLElement).blur();
+                this.onLoad();
+            };
+        }
+
+        const btnNewGame = document.getElementById('btn-new-game');
+        if (btnNewGame) {
+            btnNewGame.onclick = () => this.showCreatorScreen();
+        }
     }
 
     /**
@@ -74,7 +89,7 @@ export class CreatorModal {
      * Setup creator UI elements
      */
     setupUI() {
-        this.previewCanvas = document.getElementById('previewCanvas');
+        this.previewCanvas = document.getElementById('previewCanvas') as HTMLCanvasElement;
         if (this.previewCanvas) {
             this.previewCtx = this.previewCanvas.getContext('2d');
         }
@@ -84,43 +99,50 @@ export class CreatorModal {
         this.createSwatches('shirt-opts', COLORS.shirt, 'shirtColor');
 
         // Name Input
-        const nameInput = document.getElementById('char-name');
-        if (nameInput) {
+        const nameInput = document.getElementById('char-name') as HTMLInputElement;
+        if (nameInput && this.player) {
             nameInput.value = this.player.name || 'Farmer';
             nameInput.oninput = (e) => {
-                this.player.name = e.target.value.substring(0, 12);
+                if (this.player) {
+                    this.player.name = (e.target as HTMLInputElement).value.substring(0, 12);
+                }
             };
         }
 
         // Gender Toggle
         const genderBtns = document.querySelectorAll('.btn-gender');
         genderBtns.forEach(btn => {
+            const button = btn as HTMLElement;
             // Set initial state
-            if (btn.dataset.gender === this.player.gender) {
-                btn.classList.add('active');
-                genderBtns.forEach(b => b !== btn && b.classList.remove('active'));
+            if (this.player && button.dataset.gender === this.player.gender) {
+                button.classList.add('active');
+                genderBtns.forEach(b => b !== button && b.classList.remove('active'));
             }
 
-            btn.onclick = () => {
-                this.player.gender = btn.dataset.gender;
-                genderBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.renderPreview();
+            button.onclick = () => {
+                if (this.player) {
+                    this.player.gender = button.dataset.gender as 'male' | 'female';
+                    genderBtns.forEach(b => b.classList.remove('active'));
+                    button.classList.add('active');
+                    this.renderPreview();
+                }
             };
         });
 
         const styleBtn = document.getElementById('btn-style');
-        if (styleBtn) {
+        if (styleBtn && this.player) {
             styleBtn.onclick = () => {
-                this.player.hairStyle = (this.player.hairStyle + 1) % 3;
-                this.renderPreview();
+                if (this.player) {
+                    this.player.hairStyle = (this.player.hairStyle + 1) % 3;
+                    this.renderPreview();
+                }
             };
         }
 
         const startBtn = document.getElementById('btn-start');
         if (startBtn) {
             startBtn.onclick = (e) => {
-                e.target.blur(); // Drop focus
+                (e.target as HTMLElement).blur(); // Drop focus
                 this.onStart();
             };
         }
@@ -131,7 +153,7 @@ export class CreatorModal {
     /**
      * Create color swatch buttons
      */
-    createSwatches(containerId, colors, property) {
+    createSwatches(containerId: string, colors: string[], property: keyof Player) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -143,8 +165,10 @@ export class CreatorModal {
             swatch.style.backgroundColor = color;
 
             swatch.onclick = () => {
-                this.player[property] = color;
-                this.renderPreview();
+                if (this.player) {
+                    (this.player as any)[property] = color;
+                    this.renderPreview();
+                }
             };
 
             container.appendChild(swatch);
@@ -173,8 +197,8 @@ export class CreatorModal {
     /**
      * Draw character for preview (simplified version without game state)
      */
-    drawCharacterPreview(ctx, cx, cy) {
-        const p = this.player;
+    drawCharacterPreview(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+        const p = this.player!;
         const x = cx - 10;
         const y = cy - 15;
 

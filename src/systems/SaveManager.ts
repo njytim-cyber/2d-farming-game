@@ -3,24 +3,23 @@
  * Handles game save/load with localStorage
  */
 
-import { SAVE_KEY, AUTO_SAVE_INTERVAL } from '../game/constants.js';
-import { getState, replaceState, createInitialState } from '../game/state.js';
+import { SAVE_KEY, AUTO_SAVE_INTERVAL } from '../game/constants';
+import { getState, replaceState, createInitialState, GameState } from '../game/state';
 
-let autoSaveInterval = null;
-let onSaveCallback = null;
+let autoSaveInterval: any = null;
+let onSaveCallback: (() => void) | null = null;
 
 /**
  * Check if a save exists
- * @returns {boolean}
  */
-export function hasSave() {
+export function hasSave(): boolean {
     return localStorage.getItem(SAVE_KEY) !== null;
 }
 
 /**
  * Save the current game state
  */
-export function saveGame() {
+export function saveGame(): boolean {
     const state = getState();
 
     try {
@@ -41,7 +40,7 @@ export function saveGame() {
  * Load game from save
  * @returns {boolean} Whether load was successful
  */
-export function loadGame() {
+export function loadGame(): boolean {
     try {
         const data = localStorage.getItem(SAVE_KEY);
 
@@ -53,9 +52,9 @@ export function loadGame() {
         const currentState = getState();
 
         // Merge with current state to handle missing properties
-        const mergedState = { ...currentState, ...loaded };
+        const mergedState: GameState = { ...currentState, ...loaded };
 
-        // Ensure required properties exist
+        // Ensure required properties exist - basic validation
         if (!mergedState.player.facing) {
             mergedState.player.facing = { x: 0, y: 1 };
         }
@@ -124,9 +123,8 @@ export function stopAutoSave() {
 
 /**
  * Set callback for save events (for UI indicator)
- * @param {Function} callback 
  */
-export function onSave(callback) {
+export function onSave(callback: () => void) {
     onSaveCallback = callback;
 }
 

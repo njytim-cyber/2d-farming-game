@@ -13,12 +13,94 @@ import {
     STARTING_ENERGY,
     MAX_ENERGY,
     DAY_LENGTH
-} from './constants.js';
+} from './constants';
+
+export interface Position {
+    x: number;
+    y: number;
+}
+
+export interface Player {
+    gridX: number;
+    gridY: number;
+    visX: number;
+    visY: number;
+    isMoving: boolean;
+    facing: Position;
+    skinColor: string;
+    hairColor: string;
+    shirtColor: string;
+    hairStyle: number;
+    name: string;
+    gender: 'male' | 'female';
+    questFlags?: Record<string, boolean>;
+    hp: number;
+    maxHp: number;
+    equipment: Record<string, any>;
+    activeBuffs: any[]; // Define clearer type later
+}
+
+export interface InventoryItem {
+    name: string;
+    count: number;
+    // Add other item properties as needed
+}
+
+export interface Inventory {
+    slots: (InventoryItem | null)[];
+    selected: number;
+}
+
+export interface Message {
+    text: string;
+    color: string;
+    life: number;
+}
+
+export interface GameState {
+    screen: 'CREATOR' | 'GAME' | 'SHOP' | 'HOUSE' | 'COOKING';
+    zoom: number;
+    camera: Position;
+
+    // Scene Management
+    currentMap: string;
+    lastOverworldPos: Position | null;
+    interiors: Record<string, any>; // Define InteriorMap type if complex
+
+    map: number[][];
+    player: Player;
+    pet?: any | null; // Define Pet type properly if possible, avoiding circular dep
+    destination: Position | null;
+    crops: Record<string, any>; // Define Crop type
+    inventory: Inventory;
+    money: number;
+    energy: number;
+    maxEnergy: number;
+    dayTime: number;
+    dayLength: number;
+    dayCount: number;
+    season: number;
+    weather: 'Sunny' | 'Rain';
+    messages: Message[];
+
+    // Resource HP tracking
+    resourceHP: Record<string, number>;
+
+    // NPCs
+    npcs: any[]; // Define NPC type
+
+    // Construction & Animals
+    buildings: any[];
+    animals: any[];
+
+    // Crafting & Buffs
+    activeBuffs: any[];
+}
 
 /**
  * Create the initial game state
  */
-export function createInitialState() {
+export function createInitialState(): GameState {
     return {
         screen: 'CREATOR', // CREATOR, GAME, SHOP, HOUSE
         zoom: 1.0,
@@ -42,8 +124,13 @@ export function createInitialState() {
             shirtColor: COLORS.shirt[1],
             hairStyle: 0,
             name: 'Farmer',
-            gender: 'male'
+            gender: 'male',
+            hp: 100,
+            maxHp: 100,
+            equipment: {},
+            activeBuffs: []
         },
+        pet: null,
         destination: null,
         crops: {},
         inventory: {
@@ -78,34 +165,35 @@ export function createInitialState() {
 /**
  * State subscribers for reactive updates
  */
-const subscribers = new Set();
+type StateCallback = (state: GameState) => void;
+const subscribers = new Set<StateCallback>();
 
 /**
  * The game state singleton
  */
-let state = createInitialState();
+let state: GameState = createInitialState();
 
 /**
  * Get the current game state
  */
-export function getState() {
+export function getState(): GameState {
     return state;
 }
 
 /**
  * Update state with partial changes
- * @param {Partial<typeof state>} updates - State updates
+ * @param {Partial<GameState>} updates - State updates
  */
-export function setState(updates) {
+export function setState(updates: Partial<GameState>) {
     state = { ...state, ...updates };
     notifySubscribers();
 }
 
 /**
  * Replace entire state (used for loading saves)
- * @param {typeof state} newState - Complete state
+ * @param {GameState} newState - Complete state
  */
-export function replaceState(newState) {
+export function replaceState(newState: GameState) {
     state = newState;
     notifySubscribers();
 }
@@ -123,7 +211,7 @@ export function resetState() {
  * @param {Function} callback - Callback when state changes
  * @returns {Function} Unsubscribe function
  */
-export function subscribe(callback) {
+export function subscribe(callback: StateCallback) {
     subscribers.add(callback);
     return () => subscribers.delete(callback);
 }
@@ -140,7 +228,7 @@ function notifySubscribers() {
  * @param {object} target 
  * @param {object} source 
  */
-export function deepMerge(target, source) {
+export function deepMerge(target: any, source: any): any {
     const result = { ...target };
     for (const key in source) {
         if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {

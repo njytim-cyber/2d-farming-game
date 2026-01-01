@@ -3,8 +3,40 @@
  * Recipe-based item transformation system
  */
 
+import { Inventory } from './Inventory';
+import { TimeSystem } from './TimeSystem';
+
+interface Recipe {
+    name: string;
+    inputs: Record<string, number>;
+    output: string;
+    outputCount: number;
+    category: string;
+    requiredStation: string;
+}
+
+interface Buff {
+    type: string;
+    duration: number;
+    value: number;
+}
+
+interface Consumable {
+    energy: number;
+    sell: number;
+    icon: string;
+    buff?: Buff;
+}
+
+interface BuffType {
+    name: string;
+    description: string;
+    icon: string;
+    color: string;
+}
+
 // Recipe definitions
-export const RECIPES = {
+export const RECIPES: Record<string, Recipe> = {
     // === Basic Cooking ===
     turnip_soup: {
         name: 'Turnip Soup',
@@ -169,7 +201,7 @@ export const RECIPES = {
 };
 
 // Consumable effects (food items that can be eaten)
-export const CONSUMABLES = {
+export const CONSUMABLES: Record<string, Consumable> = {
     // === Basic Cooked Foods ===
     turnip_soup: { energy: 30, sell: 45, icon: '🍲' },
     potato_salad: { energy: 50, sell: 80, icon: '🥗' },
@@ -243,7 +275,7 @@ export const CONSUMABLES = {
 };
 
 // Active buffs that foods can grant
-export const BUFF_TYPES = {
+export const BUFF_TYPES: Record<string, BuffType> = {
     energySaver: {
         name: 'Energy Saver',
         description: 'Energy costs reduced',
@@ -272,15 +304,13 @@ export const BUFF_TYPES = {
 
 /**
  * Check if player can craft a recipe
- * @param {object} inventory - Player inventory
- * @param {string} recipeKey - Recipe key from RECIPES
- * @returns {boolean}
  */
-export function canCraft(inventory, recipeKey) {
+export function canCraft(inventory: Inventory, recipeKey: string): boolean {
     const recipe = RECIPES[recipeKey];
     if (!recipe) return false;
 
     for (const [item, count] of Object.entries(recipe.inputs)) {
+        // Find slot manually as Inventory might need specific lookup
         const slot = inventory.slots.find(s => s?.name === item);
         if (!slot || slot.count < count) {
             return false;
@@ -291,11 +321,8 @@ export function canCraft(inventory, recipeKey) {
 
 /**
  * Craft a recipe
- * @param {object} inventory - Player inventory
- * @param {string} recipeKey - Recipe key from RECIPES
- * @returns {boolean} Whether crafting succeeded
  */
-export function craft(inventory, recipeKey) {
+export function craft(inventory: Inventory, recipeKey: string): boolean {
     const recipe = RECIPES[recipeKey];
     if (!recipe || !canCraft(inventory, recipeKey)) {
         return false;
@@ -316,12 +343,9 @@ export function craft(inventory, recipeKey) {
 
 /**
  * Consume a food item
- * @param {object} inventory - Player inventory
- * @param {object} timeSystem - Time system for energy
- * @param {number} slotIndex - Inventory slot
  * @returns {object|null} Buff if granted, or null
  */
-export function consumeFood(inventory, timeSystem, slotIndex) {
+export function consumeFood(inventory: Inventory, timeSystem: TimeSystem, slotIndex: number): Buff | null {
     const item = inventory.slots[slotIndex];
     if (!item) return null;
 
@@ -344,9 +368,9 @@ export function consumeFood(inventory, timeSystem, slotIndex) {
 /**
  * Get available recipes for a station type
  */
-export function getRecipesForStation(stationType) {
+export function getRecipesForStation(stationType: string): (Recipe & { key: string })[] {
     return Object.entries(RECIPES)
-        .filter(([key, recipe]) => recipe.requiredStation === stationType)
+        .filter(([, recipe]) => recipe.requiredStation === stationType)
         .map(([key, recipe]) => ({ key, ...recipe }));
 }
 

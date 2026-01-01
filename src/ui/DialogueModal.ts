@@ -4,6 +4,11 @@
  */
 
 export class DialogueModal {
+    overlay: HTMLElement | null;
+    textEl: HTMLElement | null;
+    nextBtn: HTMLElement | null;
+    callback: (() => void) | null;
+
     constructor() {
         this.overlay = document.getElementById('dialogue-modal');
         this.textEl = document.getElementById('dialogue-text');
@@ -21,8 +26,8 @@ export class DialogueModal {
      * @param {string} text 
      * @param {Function} onFinish - Callback when conversation ends
      */
-    show(text, onFinish) {
-        if (!this.overlay) return;
+    show(text: string, onFinish: () => void) {
+        if (!this.overlay || !this.textEl) return;
 
         this.textEl.innerText = text;
         this.callback = onFinish;
@@ -31,7 +36,9 @@ export class DialogueModal {
     }
 
     onNext() {
-        this.overlay.classList.remove('modal-overlay--active');
+        if (this.overlay) {
+            this.overlay.classList.remove('modal-overlay--active');
+        }
         if (this.callback) {
             this.callback();
             this.callback = null;

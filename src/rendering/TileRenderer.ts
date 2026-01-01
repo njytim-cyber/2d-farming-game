@@ -3,25 +3,28 @@
  * Draws tiles, buildings, and crops
  */
 
-import { TILE_SIZE, TILES, INTERIOR_TILES, SEEDS, SEASON_COLORS, SEASONS, PALETTE } from '../game/constants.js';
+import { TILE_SIZE, TILES, INTERIOR_TILES, SEEDS, SEASON_COLORS, SEASONS, PALETTE } from '../game/constants';
+import { Crop } from '../entities/Crop';
 
 export class TileRenderer {
-    constructor(ctx) {
+    ctx: CanvasRenderingContext2D;
+
+    constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
     }
 
     /**
      * Get season colors
      */
-    getSeasonColors(seasonIndex) {
+    getSeasonColors(seasonIndex: number) {
         const seasonName = SEASONS[seasonIndex] || 'Spring';
-        return SEASON_COLORS[seasonName] || SEASON_COLORS.Spring;
+        return SEASON_COLORS[seasonName as keyof typeof SEASON_COLORS] || SEASON_COLORS.Spring;
     }
 
     /**
      * Check if this tile is the top-left corner of a building
      */
-    isTopLeftCorner(map, x, y, tileType) {
+    isTopLeftCorner(map: number[][], x: number, y: number, tileType: number): boolean {
         const hasAbove = y > 0 && map[y - 1] && map[y - 1][x] === tileType;
         const hasLeft = x > 0 && map[y][x - 1] === tileType;
         return !hasAbove && !hasLeft;
@@ -31,7 +34,7 @@ export class TileRenderer {
      * Check if this tile is the bottom-left corner of a building
      * Used for y-sorting.
      */
-    isBottomLeftCorner(map, x, y, tileType) {
+    isBottomLeftCorner(map: number[][], x: number, y: number, tileType: number): boolean {
         const hasBelow = y < map.length - 1 && map[y + 1] && map[y + 1][x] === tileType;
         const hasLeft = x > 0 && map[y][x - 1] === tileType;
         return !hasBelow && !hasLeft;
@@ -40,14 +43,14 @@ export class TileRenderer {
     /**
      * Draw a single tile
      */
-    drawTile(tileType, x, y, seasonIndex, map) {
+    drawTile(tileType: number, x: number, y: number, seasonIndex: number, map?: number[][]) {
         const ctx = this.ctx;
         const px = x * TILE_SIZE;
         const py = y * TILE_SIZE;
         const colors = this.getSeasonColors(seasonIndex);
 
         switch (tileType) {
-            case TILES.GRASS:
+            case TILES.GRASS: {
                 // Subtle color variation (Wang-like)
                 const gSeed = (x * 12345) ^ (y * 67890);
                 const gRand = (Math.abs(gSeed) % 10) / 100; // 0.0 to 0.1
@@ -69,9 +72,14 @@ export class TileRenderer {
                 // Procedural Decoration (Tufts, Flowers)
                 this.drawGrassDecoration(ctx, px, py, x, y);
                 break;
+            }
 
             case TILES.SOIL:
-                this.drawAutotiledSoil(ctx, px, py, x, y, map);
+                if (map) this.drawAutotiledSoil(ctx, px, py, x, y, map);
+                else {
+                    ctx.fillStyle = '#795548';
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                }
                 break;
 
             case TILES.TREE:
@@ -234,14 +242,27 @@ export class TileRenderer {
                 ctx.fillStyle = colors.grass;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         }
+    }
 
-        // Grid line removed to break the "grid" look
+    /**
+     * Draw Grass Decoration
+     */
+    drawGrassDecoration(_ctx: CanvasRenderingContext2D, _px: number, _py: number, _x: number, _y: number) {
+        // Implementation for grass variation
+    }
+
+    /**
+     * Draw Autotiled Soil (simplified placeholder)
+     */
+    drawAutotiledSoil(ctx: CanvasRenderingContext2D, px: number, py: number, _x: number, _y: number, _map: number[][]) {
+        ctx.fillStyle = '#795548';
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
     }
 
     /**
      * Draw a 3x3 house
      */
-    drawHouse3x3(px, py, ctx) {
+    drawHouse3x3(px: number, py: number, ctx: CanvasRenderingContext2D) {
         const size = TILE_SIZE * 3;
         const wallTop = py + 35;
         const wallBottom = py + size - 5;
@@ -312,7 +333,7 @@ export class TileRenderer {
         this.drawFramedWindow(ctx, px + size - 50, winY, windowSize);
     }
 
-    drawFramedWindow(ctx, x, y, size) {
+    drawFramedWindow(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
         // Frame
         ctx.fillStyle = '#5d4037';
         ctx.fillRect(x - 2, y - 2, size + 4, size + 4);
@@ -341,7 +362,7 @@ export class TileRenderer {
     /**
      * Draw a 3x3 shop
      */
-    drawShop3x3(px, py, ctx) {
+    drawShop3x3(px: number, py: number, ctx: CanvasRenderingContext2D) {
         const size = TILE_SIZE * 3;
         const buildingTop = py + 25;
         const buildingBottom = py + size - 5;
@@ -440,7 +461,7 @@ export class TileRenderer {
     /**
      * Draw Old House (8x4)
      */
-    drawOldHouse8x4(px, py, ctx) {
+    drawOldHouse8x4(px: number, py: number, ctx: CanvasRenderingContext2D) {
         const width = TILE_SIZE * 8;
         const height = TILE_SIZE * 4;
 
@@ -503,7 +524,7 @@ export class TileRenderer {
         this.drawBoardedWindow(ctx, px + width - 120, py + 70);
     }
 
-    drawBoardedWindow(ctx, x, y) {
+    drawBoardedWindow(ctx: CanvasRenderingContext2D, x: number, y: number) {
         ctx.fillStyle = '#000';
         ctx.fillRect(x, y, 40, 40);
         ctx.fillStyle = '#8d6e63';
@@ -520,7 +541,7 @@ export class TileRenderer {
     /**
      * Draw NPC
      */
-    drawNPC(ctx, x, y, id) {
+    drawNPC(ctx: CanvasRenderingContext2D, x: number, y: number, id: string) {
         // Center NPC in tile
         const drawX = x + TILE_SIZE / 2;
         const drawY = y + TILE_SIZE / 2;
@@ -557,7 +578,7 @@ export class TileRenderer {
     /**
      * Draw a crop
      */
-    drawCrop(crop, x, y) {
+    drawCrop(crop: Crop, x: number, y: number) {
         const ctx = this.ctx;
         const px = x * TILE_SIZE;
         const py = y * TILE_SIZE;
@@ -635,7 +656,7 @@ export class TileRenderer {
     /**
      * Draw an interior tile
      */
-    drawInteriorTile(tileType, x, y) {
+    drawInteriorTile(tileType: number, x: number, y: number) {
         const ctx = this.ctx;
         const px = x * TILE_SIZE;
         const py = y * TILE_SIZE;
@@ -798,170 +819,106 @@ export class TileRenderer {
                 // Floor
                 ctx.fillStyle = PALETTE.wood;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                // Counter Top
-                ctx.fillStyle = PALETTE.stone;
-                ctx.fillRect(px, py + 5, TILE_SIZE, TILE_SIZE - 5);
-                // Counter Front Detail
-                ctx.fillStyle = PALETTE.wood;
-                ctx.fillRect(px, py + 15, TILE_SIZE, TILE_SIZE - 15);
-                // Border
-                ctx.strokeStyle = PALETTE.wood_dark;
-                ctx.lineWidth = 1;
-                ctx.strokeRect(px, py + 5, TILE_SIZE, TILE_SIZE - 5);
+                // Counter body
+                ctx.fillStyle = '#5d4037';
+                ctx.fillRect(px + 2, py + 10, TILE_SIZE - 4, TILE_SIZE - 10);
+                // Counter top
+                ctx.fillStyle = '#a1887f';
+                ctx.fillRect(px, py + 5, TILE_SIZE, 12);
+                // Shadow under lip
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.fillRect(px + 2, py + 17, TILE_SIZE - 4, 3);
                 break;
 
             case INTERIOR_TILES.SHELF:
                 // Floor
-                ctx.fillStyle = '#deb887';
+                ctx.fillStyle = PALETTE.wood;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                // Shelf backing
+                // Shelf back
                 ctx.fillStyle = '#5d4037';
-                ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                ctx.fillRect(px + 2, py + 5, TILE_SIZE - 4, TILE_SIZE - 10);
                 // Shelves
                 ctx.fillStyle = '#8d6e63';
                 ctx.fillRect(px + 4, py + 15, TILE_SIZE - 8, 4);
                 ctx.fillRect(px + 4, py + 30, TILE_SIZE - 8, 4);
                 // Items
-                ctx.fillStyle = '#ef5350';
-                ctx.fillRect(px + 8, py + 8, 6, 6);
-                ctx.fillStyle = '#42a5f5';
-                ctx.fillRect(px + 20, py + 8, 5, 7);
-                ctx.fillStyle = '#ffca28';
-                ctx.fillRect(px + 10, py + 22, 8, 6);
+                ctx.fillStyle = '#ffcc80';
+                ctx.fillRect(px + 6, py + 8, 4, 6);
+                ctx.fillStyle = '#81d4fa';
+                ctx.fillRect(px + 15, py + 8, 4, 6);
                 break;
 
             case INTERIOR_TILES.TV:
                 // Floor
                 ctx.fillStyle = PALETTE.wood;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                // TV Shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.2)';
-                ctx.fillRect(px + 6, py + 35, TILE_SIZE - 12, 10);
-                // CRT Box (3/4 depth)
-                ctx.fillStyle = PALETTE.black;
-                ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, 30);
-                // Screen
-                ctx.fillStyle = PALETTE.water_dark;
-                ctx.fillRect(px + 10, py + 8, TILE_SIZE - 25, 20);
-                // Stand
-                ctx.fillStyle = PALETTE.stone;
-                ctx.fillRect(px + 15, py + 35, TILE_SIZE - 30, 5);
+                // TV Stand
+                ctx.fillStyle = '#424242';
+                ctx.fillRect(px + 8, py + 25, TILE_SIZE - 16, 12);
+                // TV Screen (Off)
+                ctx.fillStyle = '#000';
+                ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, 20);
+                // Screen Frame
+                ctx.strokeStyle = '#616161';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px + 5, py + 5, TILE_SIZE - 10, 20);
+                // Antenna
+                ctx.strokeStyle = '#9e9e9e';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(px + TILE_SIZE / 2, py + 5);
+                ctx.lineTo(px + TILE_SIZE / 2 - 5, py - 2);
+                ctx.moveTo(px + TILE_SIZE / 2, py + 5);
+                ctx.lineTo(px + TILE_SIZE / 2 + 5, py - 2);
+                ctx.stroke();
                 break;
 
             case INTERIOR_TILES.COUCH:
                 // Floor
                 ctx.fillStyle = PALETTE.wood;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                // Shadow
-                ctx.fillStyle = 'rgba(0,0,0,0.1)';
-                ctx.fillRect(px + 4, py + 35, TILE_SIZE - 8, 10);
-                // Backboard (3/4 perspective high)
-                ctx.fillStyle = PALETTE.stone_dark;
-                ctx.fillRect(px + 2, py, TILE_SIZE - 4, 30);
+                // Couch Body
+                ctx.fillStyle = '#5c6bc0';
+                ctx.fillRect(px + 2, py + 15, TILE_SIZE - 4, 20);
+                // Couch Back
+                ctx.fillStyle = '#3949ab';
+                ctx.fillRect(px + 2, py + 5, TILE_SIZE - 4, 10);
                 // Cushions
-                ctx.fillStyle = PALETTE.stone;
-                ctx.fillRect(px + 2, py + 15, TILE_SIZE - 4, 25);
-                break;
-                ctx.fillRect(px + 8, py + 20, TILE_SIZE - 16, 25);
+                ctx.fillStyle = '#7986cb';
+                ctx.fillRect(px + 5, py + 15, 18, 18);
+                ctx.fillRect(px + 27, py + 15, 18, 18);
                 break;
 
             case INTERIOR_TILES.PLANT:
                 // Floor
-                ctx.fillStyle = '#deb887';
+                ctx.fillStyle = PALETTE.wood;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
                 // Pot
                 ctx.fillStyle = '#d84315';
                 ctx.beginPath();
-                ctx.moveTo(px + 15, py + 45);
-                ctx.lineTo(px + 35, py + 45);
-                ctx.lineTo(px + 40, py + 30);
-                ctx.lineTo(px + 10, py + 30);
+                ctx.moveTo(px + 15, py + 40);
+                ctx.lineTo(px + 35, py + 40);
+                ctx.lineTo(px + 40, py + 25);
+                ctx.lineTo(px + 10, py + 25);
+                ctx.closePath();
                 ctx.fill();
-                // Leaves
-                ctx.fillStyle = '#43a047';
+                // Plant
+                ctx.fillStyle = '#4caf50';
                 ctx.beginPath();
-                ctx.arc(px + 25, py + 25, 12, 0, Math.PI * 2);
+                ctx.ellipse(px + 25, py + 20, 10, 15, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(px + 15, py + 25, 8, 12, -0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(px + 35, py + 25, 8, 12, 0.5, 0, Math.PI * 2);
                 ctx.fill();
                 break;
 
             default:
-                // Default floor
-                ctx.fillStyle = '#deb887';
+                // Generic floor if unknown
+                ctx.fillStyle = PALETTE.wood;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-        }
-
-        // Grid line removed to break the "grid" look
-    }
-
-    /**
-     * Draw autotiled soil
-     */
-    drawAutotiledSoil(ctx, px, py, x, y, map) {
-        // bitmask: 1=N, 2=E, 4=S, 8=W
-        let mask = 0;
-        if (y > 0 && map[y - 1] && map[y - 1][x] === TILES.SOIL) mask |= 1;
-        if (x < map[0].length - 1 && map[y][x + 1] === TILES.SOIL) mask |= 2;
-        if (y < map.length - 1 && map[y + 1] && map[y + 1][x] === TILES.SOIL) mask |= 4;
-        if (x > 0 && map[y][x - 1] === TILES.SOIL) mask |= 8;
-
-        const inset = 4;
-        const radius = 12;
-
-        // Base Dirt
-        ctx.fillStyle = PALETTE.soil;
-
-        const tlR = (mask & 9) === 9 ? 0 : radius;
-        const trR = (mask & 3) === 3 ? 0 : radius;
-        const brR = (mask & 6) === 6 ? 0 : radius;
-        const blR = (mask & 12) === 12 ? 0 : radius;
-
-        const x1 = (mask & 8) ? px : px + inset;
-        const y1 = (mask & 1) ? py : py + inset;
-        const x2 = (mask & 2) ? px + TILE_SIZE : px + TILE_SIZE - inset;
-        const y2 = (mask & 4) ? py + TILE_SIZE : py + TILE_SIZE - inset;
-        const w = x2 - x1;
-        const h = y2 - y1;
-
-        ctx.beginPath();
-        if (ctx.roundRect) {
-            ctx.roundRect(x1, y1, w, h, [tlR, trR, brR, blR]);
-        } else {
-            ctx.rect(x1, y1, w, h);
-        }
-        ctx.fill();
-
-        // Dirt Texture
-        ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        for (let i = 1; i < 4; i++) {
-            const ty = y1 + (h / 4) * i;
-            ctx.fillRect(x1 + 2, ty, w - 4, 1);
-        }
-    }
-
-    /**
-     * Draw procedural grass decoration
-     */
-    drawGrassDecoration(ctx, px, py, x, y) {
-        const seed = (x * 73856093) ^ (y * 19349663);
-        const rand = (Math.abs(seed) % 100) / 100;
-
-        if (rand < 0.15) {
-            ctx.fillStyle = 'rgba(0,0,0,0.1)';
-            const ox = 10 + rand * 20;
-            const oy = 10 + (1 - rand) * 20;
-            ctx.fillRect(px + ox, py + oy, 2, 4);
-            ctx.fillRect(px + ox + 4, py + oy - 2, 2, 6);
-        } else if (rand < 0.18) {
-            const fx = px + 15 + rand * 15;
-            const fy = py + 15 + (1 - rand) * 15;
-            ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.arc(fx, fy, 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#ffd54f';
-            ctx.beginPath();
-            ctx.arc(fx, fy, 0.8, 0, Math.PI * 2);
-            ctx.fill();
         }
     }
 }

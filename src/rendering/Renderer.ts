@@ -3,12 +3,43 @@
  * Handles canvas setup, camera, and draw orchestration
  */
 
-import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT, SEASON_COLORS, SEASONS, PALETTE } from '../game/constants.js';
+import { TILE_SIZE, PALETTE } from '../game/constants';
+import { Position } from '../game/state';
+
+interface Size {
+    width: number;
+    height: number;
+}
+
+interface TileRange {
+    startX: number;
+    endX: number;
+    startY: number;
+    endY: number;
+}
+
+interface Message {
+    text: string;
+    color: string;
+    life: number;
+}
+
+interface Light {
+    x: number;
+    y: number;
+    radius: number;
+    color?: string;
+}
 
 export class Renderer {
-    constructor(canvas) {
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+    lightingCanvas: HTMLCanvasElement | null = null;
+    lightingCtx: CanvasRenderingContext2D | null = null;
+
+    constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+        this.ctx = canvas.getContext('2d')!;
         this.resize();
 
         window.addEventListener('resize', () => this.resize());
@@ -25,7 +56,7 @@ export class Renderer {
     /**
      * Get canvas dimensions
      */
-    getSize() {
+    getSize(): Size {
         return {
             width: this.canvas.width,
             height: this.canvas.height
@@ -35,7 +66,7 @@ export class Renderer {
     /**
      * Calculate view dimensions based on zoom
      */
-    getViewSize(zoom) {
+    getViewSize(zoom: number): Size {
         return {
             width: this.canvas.width / zoom,
             height: this.canvas.height / zoom
@@ -45,7 +76,7 @@ export class Renderer {
     /**
      * Update camera position to follow player
      */
-    updateCamera(playerVisX, playerVisY, zoom, mapWidth, mapHeight) {
+    updateCamera(playerVisX: number, playerVisY: number, zoom: number, mapWidth: number, mapHeight: number): Position {
         const view = this.getViewSize(zoom);
         const worldWidth = mapWidth * TILE_SIZE;
         const worldHeight = mapHeight * TILE_SIZE;
@@ -72,7 +103,7 @@ export class Renderer {
     /**
      * Get visible tile range for culling
      */
-    getVisibleTileRange(camera, zoom) {
+    getVisibleTileRange(camera: Position, zoom: number): TileRange {
         const view = this.getViewSize(zoom);
 
         return {
@@ -94,7 +125,7 @@ export class Renderer {
     /**
      * Begin world space drawing
      */
-    beginWorldDraw(camera, zoom) {
+    beginWorldDraw(camera: Position, zoom: number) {
         this.ctx.save();
         this.ctx.scale(zoom, zoom);
         // Round camera coordinates to prevent sub-pixel gaps between tiles
@@ -119,12 +150,9 @@ export class Renderer {
     // Legacy drawNightOverlay removed
 
     /**
-     * Draw toast messages
-     */
-    /**
      * Draw lighting overlay with point lights
      */
-    drawLightingOverlay(darkness, lights = []) {
+    drawLightingOverlay(darkness: number, lights: Light[] = []) {
         if (darkness <= 0) return;
 
         // Use an offscreen canvas for the lighting multiply pass if needed,
@@ -135,6 +163,8 @@ export class Renderer {
             this.lightingCanvas = document.createElement('canvas');
             this.lightingCtx = this.lightingCanvas.getContext('2d');
         }
+
+        if (!this.lightingCtx || !this.lightingCanvas) return;
 
         this.lightingCanvas.width = this.canvas.width;
         this.lightingCanvas.height = this.canvas.height;
@@ -173,7 +203,23 @@ export class Renderer {
         this.ctx.globalCompositeOperation = 'source-over';
     }
 
-    drawMessages(messages) {
+    /**
+     * Draw facing indicator for player
+     */
+    drawFacingIndicator() {
+        // Find screen position of the tile in front of player
+        // Implementation depends on if we want to debug or show reticle
+        // For now, let's just leave it empty or draw a highlight if needed
+        // Original JS might have had this.
+
+        // Let's implement a simple reticle
+        // Actually, let's keep it empty if unused, but to suppress error:
+    }
+
+    /**
+     * Draw toast messages
+     */
+    drawMessages(messages: Message[]) {
         let y = this.canvas.height - 180;
 
         this.ctx.textAlign = 'center';
@@ -202,7 +248,7 @@ export class Renderer {
     /**
      * Draw movement destination indicator
      */
-    drawDestination(destination) {
+    drawDestination(destination: Position) {
         const dx = destination.x * TILE_SIZE + TILE_SIZE / 2;
         const dy = destination.y * TILE_SIZE + TILE_SIZE / 2;
 
@@ -214,16 +260,9 @@ export class Renderer {
     }
 
     /**
-     * Draw facing tile indicator
-     */
-    drawFacingIndicator(gridX, gridY, facing) {
-        // Yellow square indicator removed as requested
-    }
-
-    /**
      * Convert screen coordinates to world tile
      */
-    screenToTile(screenX, screenY, camera, zoom) {
+    screenToTile(screenX: number, screenY: number, camera: Position, zoom: number): Position {
         const worldX = (screenX / zoom) + camera.x;
         const worldY = (screenY / zoom) + camera.y;
 

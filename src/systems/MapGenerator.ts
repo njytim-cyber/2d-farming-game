@@ -3,19 +3,24 @@
  * Procedural map generation with buildings and terrain
  */
 
-import { MAP_WIDTH, MAP_HEIGHT, TILES, MAP_GEN } from '../game/constants.js';
-import { NPC_IDS } from '../game/constants.js';
+import { MAP_WIDTH, MAP_HEIGHT, TILES, MAP_GEN } from '../game/constants';
+import { CropConfig } from '../game/constants';
+
+export interface MapGenResult {
+    map: number[][];
+    npcs: any[]; // Define NPC type
+}
 
 /**
  * Generate a new game map
- * @returns {number[][]} 2D array of tile types
+ * @returns {MapGenResult} 2D array of tile types
  */
-export function generateMap() {
-    const map = [];
+export function generateMap(): MapGenResult {
+    const map: number[][] = [];
 
     // Generate base terrain
     for (let y = 0; y < MAP_HEIGHT; y++) {
-        const row = [];
+        const row: number[] = [];
         for (let x = 0; x < MAP_WIDTH; x++) {
             const rand = Math.random();
 
@@ -97,14 +102,14 @@ export function generateMap() {
 
 /**
  * Check if a tile is solid (blocks movement)
- * @param {number[][]} map - The game map
- * @param {number} x - X coordinate
- * @param {number} y - Y coordinate
- * @param {object} crops - Crops object for checking planted trees
- * @param {object} SEEDS - Seeds data for tree check
- * @returns {boolean} Whether tile is solid
  */
-export function isSolid(map, x, y, crops = {}, SEEDS = {}) {
+export function isSolid(
+    map: number[][],
+    x: number,
+    y: number,
+    crops: Record<string, any> = {},
+    SEEDS: Record<string, CropConfig> = {}
+): boolean {
     if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
         return true;
     }
@@ -134,12 +139,8 @@ export function isSolid(map, x, y, crops = {}, SEEDS = {}) {
 
 /**
  * Get the tile type at coordinates
- * @param {number[][]} map 
- * @param {number} x 
- * @param {number} y 
- * @returns {number|null} Tile type or null if out of bounds
  */
-export function getTile(map, x, y) {
+export function getTile(map: number[][], x: number, y: number): number | null {
     if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
         return null;
     }
@@ -148,12 +149,8 @@ export function getTile(map, x, y) {
 
 /**
  * Set the tile type at coordinates
- * @param {number[][]} map 
- * @param {number} x 
- * @param {number} y 
- * @param {number} tileType 
  */
-export function setTile(map, x, y, tileType) {
+export function setTile(map: number[][], x: number, y: number, tileType: number) {
     if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
         map[y][x] = tileType;
     }

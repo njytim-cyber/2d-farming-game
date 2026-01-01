@@ -3,11 +3,51 @@
  * Handles player movement, position, and character appearance
  */
 
-import { TILE_SIZE, MOVEMENT_SPEED, MAP_WIDTH, MAP_HEIGHT, COLORS } from '../game/constants.js';
-import { getState } from '../game/state.js';
+import { TILE_SIZE, MOVEMENT_SPEED, MAP_WIDTH, MAP_HEIGHT, COLORS } from '../game/constants';
+import { getState, Position } from '../game/state';
+
+interface Buff {
+    type: string;
+    remainingTime: number;
+    value: number;
+}
+
+interface EquipmentItem {
+    name: string;
+    type: string;
+    attack?: number;
+}
+
+interface Equipment {
+    head: EquipmentItem | null;
+    body: EquipmentItem | null;
+    legs: EquipmentItem | null;
+    weapon: EquipmentItem | null;
+    offhand: EquipmentItem | null;
+}
 
 export class Player {
-    constructor(playerData) {
+    gridX: number;
+    gridY: number;
+    visX: number;
+    visY: number;
+    isMoving: boolean;
+    facing: Position;
+    skinColor: string;
+    hairColor: string;
+    shirtColor: string;
+    hairStyle: number;
+    name: string;
+    gender: 'male' | 'female';
+    equipment: Equipment;
+    hp: number;
+    maxHp: number;
+    questFlags: Record<string, boolean>;
+    attackTimer: number;
+    isAttacking: boolean;
+    activeBuffs: Buff[];
+
+    constructor(playerData: any) {
         this.gridX = playerData.gridX;
         this.gridY = playerData.gridY;
         this.visX = playerData.visX;
@@ -30,7 +70,6 @@ export class Player {
             body: null,
             legs: null,
             weapon: null,
-            weapon: null,
             offhand: null
         };
 
@@ -44,14 +83,14 @@ export class Player {
         this.isAttacking = false;
 
         // Active Buffs (from food consumption)
-        this.activeBuffs = playerData.activeBuffs || [];
+        this.activeBuffs = (playerData.activeBuffs as Buff[]) || [];
     }
 
     /**
      * Apply a buff from consuming food
      * @param {object} buff - { type, duration, value }
      */
-    applyBuff(buff) {
+    applyBuff(buff: { type: string, duration: number, value: number }) {
         // Remove existing buff of same type
         this.activeBuffs = this.activeBuffs.filter(b => b.type !== buff.type);
         // Add new buff with remaining time
@@ -66,7 +105,7 @@ export class Player {
      * Update buff timers
      * @param {number} dt - Delta time in seconds
      */
-    updateBuffs(dt) {
+    updateBuffs(dt: number) {
         this.activeBuffs = this.activeBuffs.filter(buff => {
             buff.remainingTime -= dt;
             return buff.remainingTime > 0;
@@ -76,7 +115,7 @@ export class Player {
     /**
      * Get buff value by type
      */
-    getBuffValue(type) {
+    getBuffValue(type: string): number | null {
         const buff = this.activeBuffs.find(b => b.type === type);
         return buff ? buff.value : null;
     }
@@ -84,7 +123,7 @@ export class Player {
     /**
      * Get effective movement speed (with buffs)
      */
-    getEffectiveSpeed() {
+    getEffectiveSpeed(): number {
         const speedBuff = this.getBuffValue('speedBoost');
         return speedBuff ? MOVEMENT_SPEED * speedBuff : MOVEMENT_SPEED;
     }
@@ -92,7 +131,7 @@ export class Player {
     /**
      * Get effective max HP (with buffs)
      */
-    getEffectiveMaxHp() {
+    getEffectiveMaxHp(): number {
         const hpBuff = this.getBuffValue('maxHpBoost');
         return hpBuff ? this.maxHp + hpBuff : this.maxHp;
     }
@@ -100,19 +139,16 @@ export class Player {
     /**
      * Get energy cost multiplier (with buffs)
      */
-    getEnergyCostMultiplier() {
+    getEnergyCostMultiplier(): number {
         const energyBuff = this.getBuffValue('energySaver');
         return energyBuff ? energyBuff : 1.0;
     }
 
     /**
      * Update player movement (smooth interpolation)
-     */
-    /**
-     * Update player movement (smooth interpolation)
      * @param {number} dt - Delta time in seconds
      */
-    update(dt) {
+    update(dt: number) {
         if (this.attackTimer > 0) {
             this.attackTimer -= dt * 1000;
             if (this.attackTimer <= 0) {
@@ -141,12 +177,8 @@ export class Player {
 
     /**
      * Try to move in a direction
-     * @param {number} dx - X direction (-1, 0, 1)
-     * @param {number} dy - Y direction (-1, 0, 1)
-     * @param {Function} isSolidFn - Function to check if tile is solid
-     * @returns {boolean} Whether move was successful
      */
-    tryMove(dx, dy, isSolidFn) {
+    tryMove(dx: number, dy: number, isSolidFn: (x: number, y: number) => boolean): boolean {
         if (this.isMoving) return false;
 
         const newX = this.gridX + dx;
@@ -168,17 +200,17 @@ export class Player {
     /**
      * Get the tile coordinates the player is facing
      */
-    getFacingTile() {
+    getFacingTile(): Position {
         return {
-            x: this.gridX + this.facing.x,
-            y: this.gridY + this.facing.y
+            x: this.gridX + (this.facing.x || 0),
+            y: this.gridY + (this.facing.y || 0)
         };
     }
 
     /**
      * Set character appearance
      */
-    setAppearance({ skinColor, hairColor, shirtColor, hairStyle, name, gender }) {
+    setAppearance({ skinColor, hairColor, shirtColor, hairStyle, name, gender }: any) {
         if (skinColor !== undefined) this.skinColor = skinColor;
         if (hairColor !== undefined) this.hairColor = hairColor;
         if (shirtColor !== undefined) this.shirtColor = shirtColor;
@@ -197,7 +229,7 @@ export class Player {
     /**
      * Serialize player data
      */
-    serialize() {
+    serialize(): any {
         return {
             gridX: this.gridX,
             gridY: this.gridY,
@@ -224,7 +256,7 @@ export class Player {
     /**
      * Calculate total attack damage
      */
-    getAttack() {
+    getAttack(): number {
         let dmg = 1; // Base damage
         if (this.equipment && this.equipment.weapon) {
             dmg += (this.equipment.weapon.attack || 0);
@@ -235,7 +267,7 @@ export class Player {
     /**
      * Take damage
      */
-    takeDamage(amount) {
+    takeDamage(amount: number): boolean {
         this.hp = Math.max(0, this.hp - amount);
         return this.hp === 0;
     }
@@ -250,11 +282,8 @@ export class Player {
 
     /**
      * Draw the player character
-     * @param {CanvasRenderingContext2D} ctx 
-     * @param {number} x - Center X position
-     * @param {number} y - Center Y position
      */
-    draw(ctx, x, y) {
+    draw(ctx: CanvasRenderingContext2D, x: number, y: number) {
         const drawX = x - 10;
         const drawY = y - 15;
         const state = getState();
@@ -376,7 +405,7 @@ export class Player {
     /**
      * Draw sword swing animation
      */
-    drawSwordSwing(ctx, cx, cy) {
+    drawSwordSwing(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
         const progress = 1 - (this.attackTimer / 300);
         const angle = -Math.PI / 4 + progress * Math.PI / 2; // -45 to +45 deg swing
 

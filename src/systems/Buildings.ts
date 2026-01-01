@@ -3,11 +3,37 @@
  * Handles multi-tile building placement, persistence, and management
  */
 
-import { TILE_SIZE, TILES } from '../game/constants.js';
-import { isSolid, setTile } from './MapGenerator.js';
+import { TILES } from '../game/constants';
+import { isSolid, setTile } from './MapGenerator';
+import { GameState } from '../game/state';
+import { CropConfig } from '../game/constants';
+import { Inventory } from './Inventory';
+
+interface BuildingType {
+    name: string;
+    size: [number, number];
+    cost: Record<string, number>;
+    capacity: number;
+    animalTypes?: string[];
+    storage?: number;
+    tileId: number;
+    color: string;
+}
+
+interface Building {
+    id: number;
+    type: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    animals: any[];
+    storage: number;
+    currentStorage: number;
+}
 
 // Building type definitions
-export const BUILDING_TYPES = {
+export const BUILDING_TYPES: Record<string, BuildingType> = {
     BARN: {
         name: 'Barn',
         size: [4, 4],
@@ -39,15 +65,15 @@ export const BUILDING_TYPES = {
 
 /**
  * Check if a building can be placed at coordinates
- * @param {number[][]} map - The game map
- * @param {number} x - Top-left X coordinate
- * @param {number} y - Top-left Y coordinate
- * @param {number[]} size - [width, height] of building
- * @param {object} crops - Crops object
- * @param {object} SEEDS - Seeds data
- * @returns {boolean} Whether placement is valid
  */
-export function canPlaceBuilding(map, x, y, size, crops = {}, SEEDS = {}) {
+export function canPlaceBuilding(
+    map: number[][],
+    x: number,
+    y: number,
+    size: [number, number],
+    crops: Record<string, any> = {},
+    SEEDS: Record<string, CropConfig> = {}
+): boolean {
     const [width, height] = size;
 
     // Check all tiles in the building footprint
@@ -73,13 +99,13 @@ export function canPlaceBuilding(map, x, y, size, crops = {}, SEEDS = {}) {
 
 /**
  * Place a building on the map
- * @param {object} state - Game state
- * @param {string} buildingType - Type key from BUILDING_TYPES
- * @param {number} x - Top-left X coordinate
- * @param {number} y - Top-left Y coordinate
- * @returns {object|null} Building object if placed, null if failed
  */
-export function placeBuilding(state, buildingType, x, y) {
+export function placeBuilding(
+    state: GameState,
+    buildingType: string,
+    x: number,
+    y: number
+): Building | null {
     const buildingDef = BUILDING_TYPES[buildingType];
     if (!buildingDef) return null;
 
@@ -93,7 +119,7 @@ export function placeBuilding(state, buildingType, x, y) {
     }
 
     // Create building record
-    const building = {
+    const building: Building = {
         id: Date.now(),
         type: buildingType,
         x,
@@ -117,9 +143,9 @@ export function placeBuilding(state, buildingType, x, y) {
 /**
  * Remove a building from the map
  */
-export function removeBuilding(state, buildingId) {
-    const idx = state.buildings?.findIndex(b => b.id === buildingId);
-    if (idx === -1) return false;
+export function removeBuilding(state: GameState, buildingId: number): boolean {
+    const idx = state.buildings?.findIndex((b: Building) => b.id === buildingId);
+    if (idx === undefined || idx === -1) return false;
 
     const building = state.buildings[idx];
 
@@ -138,8 +164,8 @@ export function removeBuilding(state, buildingId) {
 /**
  * Get building at coordinates
  */
-export function getBuildingAt(state, x, y) {
-    return state.buildings?.find(b =>
+export function getBuildingAt(state: GameState, x: number, y: number): Building | undefined {
+    return state.buildings?.find((b: Building) =>
         x >= b.x && x < b.x + b.width &&
         y >= b.y && y < b.y + b.height
     );
@@ -148,7 +174,7 @@ export function getBuildingAt(state, x, y) {
 /**
  * Check if player can afford building
  */
-export function canAffordBuilding(inventory, buildingType) {
+export function canAffordBuilding(inventory: Inventory, buildingType: string): boolean {
     const buildingDef = BUILDING_TYPES[buildingType];
     if (!buildingDef) return false;
 
@@ -164,7 +190,7 @@ export function canAffordBuilding(inventory, buildingType) {
 /**
  * Deduct building cost from inventory
  */
-export function deductBuildingCost(inventory, buildingType) {
+export function deductBuildingCost(inventory: Inventory, buildingType: string): boolean {
     const buildingDef = BUILDING_TYPES[buildingType];
     if (!buildingDef) return false;
 

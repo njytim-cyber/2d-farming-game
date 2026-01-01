@@ -3,12 +3,56 @@
  * Handles DOM UI updates and modal orchestration
  */
 
-import { Inventory } from '../systems/Inventory.js';
-import { EquipmentModal } from './EquipmentModal.js';
-import { DialogueModal } from './DialogueModal.js';
-import { SEASONS, SEASON_ICONS } from '../game/constants.js';
+import { Inventory } from '../systems/Inventory';
+import { EquipmentModal } from './EquipmentModal';
+import { DialogueModal } from './DialogueModal';
+import { SEASONS, SEASON_ICONS } from '../game/constants';
+import { Player } from '../entities/Player';
+import { CropConfig } from '../game/constants';
+
+interface UIElements {
+    inventoryScroll: HTMLElement | null;
+    energyText: HTMLElement | null;
+    energyBar: HTMLElement | null;
+    seasonIcon: HTMLElement | null;
+    seasonName: HTMLElement | null;
+    time: HTMLElement | null;
+    timeIcon: HTMLElement | null;
+    money: HTMLElement | null;
+    day: HTMLElement | null;
+    saveIndicator: HTMLElement | null;
+    creatorModal: HTMLElement | null;
+    shopModal: HTMLElement | null;
+    houseModal: HTMLElement | null;
+    shopItems: HTMLElement | null;
+    sellList: HTMLElement | null;
+    startPanelContent: HTMLElement | null;
+    healthText: HTMLElement | null;
+    healthBar: HTMLElement | null;
+}
+
+interface GameStats {
+    money: number;
+    day: number;
+    season: number;
+    weather: string;
+    energy: number;
+    maxEnergy: number;
+    timeString: string;
+    hp: number;
+    maxHp: number;
+}
 
 export class UIManager {
+    elements: UIElements;
+    onSlotSelectCallback: ((index: number) => void) | null;
+    onEquipCallback: ((index: number) => void) | null;
+    equipmentModal: EquipmentModal | null;
+    dialogueModal: DialogueModal;
+    tooltip: HTMLElement | null;
+    lastInventoryHash: string;
+    lastStats: Partial<GameStats>;
+
     constructor() {
         // Cache DOM elements
         this.elements = {
@@ -36,8 +80,12 @@ export class UIManager {
         };
 
         this.onSlotSelectCallback = null;
+        this.onEquipCallback = null;
         this.equipmentModal = null;
         this.dialogueModal = new DialogueModal();
+        this.tooltip = null;
+        this.lastInventoryHash = '';
+        this.lastStats = {};
 
         // Setup Tooltip
         this.setupTooltips();
@@ -54,7 +102,7 @@ export class UIManager {
     /**
      * Setup Equipment Modal
      */
-    setupEquipment(player) {
+    setupEquipment(player: Player) {
         this.equipmentModal = new EquipmentModal(player);
         const modalEl = document.getElementById('equipment-modal');
         if (modalEl) {
@@ -71,34 +119,38 @@ export class UIManager {
         this.tooltip.innerHTML = '<div class="tooltip__content"></div>';
         document.body.appendChild(this.tooltip);
 
-        const content = this.tooltip.querySelector('.tooltip__content');
+        const content = this.tooltip.querySelector('.tooltip__content') as HTMLElement;
 
         document.addEventListener('mouseover', (e) => {
-            const target = e.target.closest('[data-tooltip]');
+            const target = (e.target as HTMLElement).closest('[data-tooltip]') as HTMLElement;
             if (target) {
                 const text = target.dataset.tooltip;
-                if (text) {
+                if (text && content) {
                     content.innerText = text;
-                    this.tooltip.style.display = 'block';
-                    this.moveTooltip(e.clientX, e.clientY);
+                    if (this.tooltip) {
+                        this.tooltip.style.display = 'block';
+                        this.moveTooltip(e.clientX, e.clientY);
+                    }
                 }
             }
         });
 
         document.addEventListener('mouseout', (e) => {
-            if (e.target.closest('[data-tooltip]')) {
-                this.tooltip.style.display = 'none';
+            if ((e.target as HTMLElement).closest('[data-tooltip]')) {
+                if (this.tooltip) this.tooltip.style.display = 'none';
             }
         });
 
         document.addEventListener('mousemove', (e) => {
-            if (this.tooltip.style.display === 'block') {
+            if (this.tooltip && this.tooltip.style.display === 'block') {
                 this.moveTooltip(e.clientX, e.clientY);
             }
         });
     }
 
-    moveTooltip(x, y) {
+    moveTooltip(x: number, y: number) {
+        if (!this.tooltip) return;
+
         const padding = 10;
         let left = x + padding;
         let top = y + padding;
@@ -115,24 +167,21 @@ export class UIManager {
     /**
      * Set inventory slot select callback
      */
-    onSlotSelect(callback) {
+    onSlotSelect(callback: (index: number) => void) {
         this.onSlotSelectCallback = callback;
     }
 
     /**
      * Set equipment callback
      */
-    onEquip(callback) {
+    onEquip(callback: (index: number) => void) {
         this.onEquipCallback = callback;
     }
 
     /**
-     * Update inventory display
-     */
-    /**
      * Update inventory display (Optimized)
      */
-    renderInventory(inventory) {
+    renderInventory(inventory: Inventory) {
         // Simple cache check to avoid rebuilding DOM every frame
         const currentHash = JSON.stringify(inventory.slots) + inventory.selected;
         if (this.lastInventoryHash === currentHash) return;
@@ -174,7 +223,7 @@ export class UIManager {
     /**
      * Update stats display (Optimized)
      */
-    updateStats({ money, day, season, weather, energy, maxEnergy, timeString, hp, maxHp }) {
+    updateStats({ money, day, season, weather, energy, maxEnergy, timeString, hp, maxHp }: GameStats) {
         if (!this.lastStats) this.lastStats = {};
 
         if (this.lastStats.money !== money) {
@@ -183,7 +232,7 @@ export class UIManager {
         }
 
         if (this.lastStats.day !== day) {
-            if (this.elements.day) this.elements.day.innerText = day;
+            if (this.elements.day) this.elements.day.innerText = day.toString();
             this.lastStats.day = day;
         }
 
@@ -206,7 +255,7 @@ export class UIManager {
         }
 
         if (this.lastStats.energy !== energy || this.lastStats.maxEnergy !== maxEnergy) {
-            if (this.elements.energyText) this.elements.energyText.innerText = `${energy}/${maxEnergy}`;
+            if (this.elements.energyText) this.elements.energyText.innerText = `${energy.toFixed(0)}/${maxEnergy}`;
             if (this.elements.energyBar) {
                 this.elements.energyBar.style.width = `${(energy / maxEnergy) * 100}%`;
                 if (energy < 20) this.elements.energyBar.style.backgroundColor = '#ef5350';
@@ -227,11 +276,9 @@ export class UIManager {
         }
     }
 
-    showDialogue(text, callback) {
+    showDialogue(text: string, callback: () => void) {
         this.dialogueModal.show(text, callback);
     }
-
-
 
     /**
      * Show save indicator
@@ -240,7 +287,8 @@ export class UIManager {
         if (this.elements.saveIndicator) {
             this.elements.saveIndicator.classList.add('save-indicator--active');
             setTimeout(() => {
-                this.elements.saveIndicator.classList.remove('save-indicator--active');
+                if (this.elements.saveIndicator)
+                    this.elements.saveIndicator.classList.remove('save-indicator--active');
             }, 1000);
         }
     }
@@ -248,7 +296,7 @@ export class UIManager {
     /**
      * Show/hide creator modal
      */
-    setCreatorVisible(visible) {
+    setCreatorVisible(visible: boolean) {
         if (this.elements.creatorModal) {
             this.elements.creatorModal.classList.toggle('modal-overlay--active', visible);
         }
@@ -257,7 +305,7 @@ export class UIManager {
     /**
      * Show/hide shop modal
      */
-    setShopVisible(visible) {
+    setShopVisible(visible: boolean) {
         if (this.elements.shopModal) {
             this.elements.shopModal.classList.toggle('modal-overlay--active', visible);
         }
@@ -266,7 +314,7 @@ export class UIManager {
     /**
      * Show/hide house modal
      */
-    setHouseVisible(visible) {
+    setHouseVisible(visible: boolean) {
         if (this.elements.houseModal) {
             this.elements.houseModal.classList.toggle('modal-overlay--active', visible);
         }
@@ -275,15 +323,16 @@ export class UIManager {
     /**
      * Render shop items
      */
-    renderShop(seeds, currentSeason, onBuy) {
+    renderShop(seeds: Record<string, CropConfig>, currentSeason: number, onBuy: (seed: string) => void) {
         if (!this.elements.shopItems) return;
 
         let html = '';
         for (const [key, val] of Object.entries(seeds)) {
             // Determine if crop is in season
+            // val.seasons is optional in CropConfig? In constants.ts it is seasons: number[].
             const isInSeason = val.seasons ? val.seasons.includes(currentSeason) : true;
             const seasonIcons = val.seasons
-                ? val.seasons.map(s => SEASON_ICONS[s]).join('')
+                ? val.seasons.map((s: number) => SEASON_ICONS[s]).join('')
                 : '🌱';  // All season indicator
 
             const cardClass = isInSeason ? 'shop-card shop-card--in-season' : 'shop-card shop-card--out-season';
@@ -304,14 +353,14 @@ export class UIManager {
 
         // Add click handlers
         this.elements.shopItems.querySelectorAll('.btn--buy').forEach(btn => {
-            btn.onclick = () => onBuy(btn.dataset.seed);
+            (btn as HTMLElement).onclick = () => onBuy((btn as HTMLElement).dataset.seed!);
         });
     }
 
     /**
      * Render sell list
      */
-    renderSellList(inventory, onSell) {
+    renderSellList(inventory: Inventory, onSell: (slotIndex: number, value: number) => void) {
         if (!this.elements.sellList) return;
 
         this.elements.sellList.innerHTML = '';
@@ -327,14 +376,14 @@ export class UIManager {
             chip.innerHTML = `${Inventory.getIcon(item.name)} ${Inventory.getName(item.name)} ($${value})`;
             chip.onclick = () => onSell(idx, value);
 
-            this.elements.sellList.appendChild(chip);
+            this.elements.sellList!.appendChild(chip);
         });
     }
 
     /**
      * Set start panel content
      */
-    setStartPanelContent(html) {
+    setStartPanelContent(html: string) {
         if (this.elements.startPanelContent) {
             this.elements.startPanelContent.innerHTML = html;
         }

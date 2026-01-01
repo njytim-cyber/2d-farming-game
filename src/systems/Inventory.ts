@@ -3,13 +3,20 @@
  * Manages player inventory slots and item operations
  */
 
-import { INVENTORY_SIZE, SEEDS, RESOURCE_VALUES, ITEMS as ITEM_DATA } from '../game/constants.js';
+import { INVENTORY_SIZE, SEEDS, RESOURCE_VALUES, ITEMS as ITEM_DATA } from '../game/constants';
+import { InventoryItem } from '../game/state';
+
+type InventoryCallback = (inventory: Inventory) => void;
 
 /**
  * Inventory Manager class
  */
 export class Inventory {
-    constructor(slots = null, selected = 0) {
+    slots: (InventoryItem | null)[];
+    selected: number;
+    private onChangeCallbacks: InventoryCallback[];
+
+    constructor(slots: (InventoryItem | null)[] | null = null, selected: number = 0) {
         this.slots = slots || new Array(INVENTORY_SIZE).fill(null);
         this.selected = selected;
         this.onChangeCallbacks = [];
@@ -18,7 +25,7 @@ export class Inventory {
     /**
      * Subscribe to inventory changes
      */
-    onChange(callback) {
+    onChange(callback: InventoryCallback): () => void {
         this.onChangeCallbacks.push(callback);
         return () => {
             const idx = this.onChangeCallbacks.indexOf(callback);
@@ -39,7 +46,7 @@ export class Inventory {
      * @param {number} count - Number to add
      * @returns {boolean} Whether add was successful
      */
-    addItem(name, count = 1) {
+    addItem(name: string, count: number = 1): boolean {
         // First try to stack with existing
         for (const slot of this.slots) {
             if (slot && slot.name === name) {
@@ -67,7 +74,7 @@ export class Inventory {
      * @param {number} count - Number to remove
      * @returns {boolean} Whether removal was successful
      */
-    removeItem(name, count = 1) {
+    removeItem(name: string, count: number = 1): boolean {
         for (let i = 0; i < this.slots.length; i++) {
             const slot = this.slots[i];
             if (slot && slot.name === name) {
@@ -87,7 +94,7 @@ export class Inventory {
      * @param {number} slotIndex 
      * @param {number} count 
      */
-    removeFromSlot(slotIndex, count = 1) {
+    removeFromSlot(slotIndex: number, count: number = 1): boolean {
         const slot = this.slots[slotIndex];
         if (slot) {
             slot.count -= count;
@@ -103,14 +110,14 @@ export class Inventory {
     /**
      * Get selected slot
      */
-    getSelectedItem() {
+    getSelectedItem(): InventoryItem | null {
         return this.slots[this.selected];
     }
 
     /**
      * Select a slot
      */
-    selectSlot(index) {
+    selectSlot(index: number) {
         if (index >= 0 && index < this.slots.length) {
             this.selected = index;
             this.notifyChange();
@@ -120,14 +127,14 @@ export class Inventory {
     /**
      * Check if inventory has item
      */
-    hasItem(name) {
+    hasItem(name: string): boolean {
         return this.slots.some(slot => slot && slot.name === name);
     }
 
     /**
      * Get count of specific item
      */
-    getItemCount(name) {
+    getItemCount(name: string): number {
         let total = 0;
         for (const slot of this.slots) {
             if (slot && slot.name === name) {
@@ -140,21 +147,21 @@ export class Inventory {
     /**
      * Alias for getItemCount (used by CookingModal)
      */
-    countItem(name) {
+    countItem(name: string): number {
         return this.getItemCount(name);
     }
 
     /**
      * Check if inventory is full
      */
-    isFull() {
+    isFull(): boolean {
         return !this.slots.some(slot => slot === null);
     }
 
     /**
      * Get readable name for key
      */
-    static getName(key) {
+    static getName(key: string): string {
         if (!key) return '';
         if (ITEM_DATA[key]) return ITEM_DATA[key].name;
         if (SEEDS[key]) return SEEDS[key].name;
@@ -170,7 +177,7 @@ export class Inventory {
     /**
      * Get icon for item
      */
-    static getIcon(name) {
+    static getIcon(name: string): string {
         const lower = name.toLowerCase();
         if (lower === 'wood') return '🪵';
         if (lower === 'stone') return '🪨';
@@ -206,7 +213,7 @@ export class Inventory {
     /**
      * Get sell value of item
      */
-    static getSellValue(name) {
+    static getSellValue(name: string): number {
         // Check if it's a crop
         if (SEEDS[name]) {
             return SEEDS[name].sell;
@@ -225,7 +232,7 @@ export class Inventory {
     /**
      * Serialize inventory for save
      */
-    serialize() {
+    serialize(): { slots: (InventoryItem | null)[], selected: number } {
         return {
             slots: this.slots,
             selected: this.selected
@@ -235,7 +242,7 @@ export class Inventory {
     /**
      * Load from serialized data
      */
-    static deserialize(data) {
+    static deserialize(data: { slots: (InventoryItem | null)[], selected: number }): Inventory {
         return new Inventory(data.slots, data.selected);
     }
 }

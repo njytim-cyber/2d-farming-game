@@ -4,31 +4,60 @@
  */
 
 import {
-    TILE_SIZE, MAP_WIDTH, MAP_HEIGHT, TILES, SEEDS,
-    ENERGY_COST, INTERIOR_TILES, RESOURCE_TYPES, NPC_IDS
-} from './constants.js';
-import { getState, setState, replaceState, createInitialState } from './state.js';
-import { generateMap, isSolid, setTile } from '../systems/MapGenerator.js';
-import { generateHouseInterior, generateShopInterior, generateOldHouseInterior, isInteriorSolid, getInteriorSpawn } from '../systems/InteriorMaps.js';
-import { saveGame, loadGame, hasSave, startAutoSave, onSave, resetGame } from '../systems/SaveManager.js';
-import { Inventory } from '../systems/Inventory.js';
-import { TimeSystem } from '../systems/TimeSystem.js';
-import { Pet } from '../entities/Pet.js';
-import { PetNameModal } from '../ui/PetNameModal.js';
-import { ParticleSystem } from '../systems/ParticleSystem.js';
-import { Player } from '../entities/Player.js';
-import { Renderer } from '../rendering/Renderer.js';
-import { TileRenderer } from '../rendering/TileRenderer.js';
-import { InputManager } from '../input/InputManager.js';
-import { UIManager } from '../ui/UIManager.js';
-import { CreatorModal } from '../ui/CreatorModal.js';
-import { ShopModal } from '../ui/ShopModal.js';
-import { CookingModal } from '../ui/CookingModal.js';
-import { CONSUMABLES, consumeFood } from '../systems/Recipes.js';
+    TILE_SIZE,
+    MAP_WIDTH,
+    MAP_HEIGHT,
+    SEEDS,
+    TILES,
+    INTERIOR_TILES,
+    NPC_IDS,
+    RESOURCE_TYPES,
+    ENERGY_COST,
+    ITEMS
+} from './constants';
+import { getState, setState, GameState } from './state';
+import { generateMap, isSolid, setTile } from '../systems/MapGenerator';
+import { generateHouseInterior, generateShopInterior, generateOldHouseInterior, isInteriorSolid, getInteriorSpawn } from '../systems/InteriorMaps';
+import { saveGame, loadGame, hasSave, startAutoSave, onSave, resetGame } from '../systems/SaveManager';
+import { Inventory } from '../systems/Inventory';
+import { TimeSystem } from '../systems/TimeSystem';
+import { Pet } from '../entities/Pet';
+import { PetNameModal } from '../ui/PetNameModal';
+import { ParticleSystem } from '../systems/ParticleSystem';
+import { Player } from '../entities/Player';
+import Renderer from '../rendering/Renderer';
+import TileRenderer from '../rendering/TileRenderer';
+import { InputManager } from '../input/InputManager';
+import { UIManager } from '../ui/UIManager';
+import { CreatorModal } from '../ui/CreatorModal';
+import { ShopModal } from '../ui/ShopModal';
+import CookingModal from '../ui/CookingModal';
+import { CONSUMABLES } from '../systems/Recipes';
 
 export class Game {
+    canvas: HTMLCanvasElement | null;
+    renderer: Renderer;
+    tileRenderer: TileRenderer;
+    inputManager: InputManager;
+    uiManager: UIManager;
+    particleSystem: ParticleSystem;
+
+    player: Player | null;
+    inventory: Inventory | null;
+    timeSystem: TimeSystem | null;
+    pet: Pet | null;
+    creatorModal: CreatorModal | null;
+    shopModal: ShopModal | null;
+    cookingModal: CookingModal | null;
+
+    isRunning: boolean;
+    bufferedMove: { dx: number; dy: number } | null;
+    attackCooldown: number;
+    petIntroTriggered: boolean;
+    introActive: boolean;
+
     constructor() {
-        this.canvas = document.getElementById('gameCanvas');
+        this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
         this.renderer = new Renderer(this.canvas);
         this.tileRenderer = new TileRenderer(this.renderer.ctx);
         this.inputManager = new InputManager();
@@ -38,6 +67,7 @@ export class Game {
         this.player = null;
         this.inventory = null;
         this.timeSystem = null;
+        this.pet = null;
         this.creatorModal = null;
         this.shopModal = null;
         this.cookingModal = null;
@@ -45,6 +75,8 @@ export class Game {
         this.isRunning = false;
         this.bufferedMove = null;
         this.attackCooldown = 0;
+        this.petIntroTriggered = false;
+        this.introActive = false;
     }
 
     /**
@@ -63,8 +95,8 @@ export class Game {
 
         // Setup shop modal
         this.shopModal = new ShopModal(this.uiManager, {
-            onBuy: (seedType) => this.buyItem(seedType),
-            onSell: (slotIndex, value) => this.sellItem(slotIndex, value),
+            onBuy: (seedType: string) => this.buyItem(seedType),
+            onSell: (slotIndex: number, value: number) => this.sellItem(slotIndex, value),
             onClose: () => this.closeShop(),
             onReset: () => this.resetGameData()
         });
@@ -74,39 +106,39 @@ export class Game {
 
         // Setup cooking modal
         this.cookingModal = new CookingModal(this.uiManager, {
-            onCook: (recipeKey) => {
+            onCook: (recipeKey: string) => {
                 this.showToast(`Cooked ${recipeKey.replace(/_/g, ' ')}!`, '#81c784');
                 this.syncInventory();
                 saveGame();
             },
-            onConsume: (slotIdx) => this.consumeFoodItem(slotIdx),
+            onConsume: (slotIdx: number) => this.consumeFoodItem(slotIdx),
             onClose: () => setState({ screen: 'GAME' })
         });
 
         // Initialize with state
         const state = getState();
-        this.player = new Player(state.player);
-        this.inventory = new Inventory(state.inventory.slots, state.inventory.selected);
-        this.timeSystem = new TimeSystem(state);
+        if (state.player) this.player = new Player(state.player);
+        if (state.inventory) this.inventory = new Inventory(state.inventory.slots, state.inventory.selected);
+        this.timeSystem = new TimeSystem(state); // TimeSystem handles state internally if passed, or default
 
         // Setup UI callbacks
         this.uiManager.onSlotSelect((idx) => this.interactWithSelected(idx));
         this.uiManager.onEquip((idx) => this.equipItem(idx));
 
         // Show creator/continue screen
-        this.creatorModal.show(this.player, hasSave());
+        if (this.creatorModal && this.player) this.creatorModal.show(this.player, hasSave());
 
         // Start game loop
         this.isRunning = true;
-        this.loop();
+        this.loop(0);
     }
 
     /**
      * Setup house modal buttons
      */
     setupHouseModal() {
-        const sleepBtn = document.querySelector('#house-modal .btn--start');
-        const leaveBtn = document.querySelector('#house-modal .btn--secondary');
+        const sleepBtn = document.querySelector('#house-modal .btn--start') as HTMLElement;
+        const leaveBtn = document.querySelector('#house-modal .btn--secondary') as HTMLElement;
 
         if (sleepBtn) {
             sleepBtn.onclick = () => this.sleep();
@@ -133,27 +165,27 @@ export class Game {
             this.inventory = new Inventory(state.inventory.slots, state.inventory.selected);
             this.timeSystem = new TimeSystem(state);
 
-            // Re-create pet if exists in save (need to add to save schema later)
-            // For now, spawn a pet if one isn't saved, or default
             // Re-create pet if exists in save
             if (state.pet) {
                 this.pet = new Pet(state.pet.gridX, state.pet.gridY);
                 this.pet.name = state.pet.name;
                 this.pet.color = state.pet.color;
                 this.pet.state = state.pet.state || 'IDLE';
-            } else {
+            } else if (this.player) {
                 this.pet = new Pet(this.player.gridX + 1, this.player.gridY); // Default companion
             }
 
-            this.uiManager.setupEquipment(this.player);
+            if (this.player) this.uiManager.setupEquipment(this.player);
 
             // Validate player position
-            if (this.player.gridX >= MAP_WIDTH || this.player.gridY >= MAP_HEIGHT ||
-                isSolid(state.map, this.player.gridX, this.player.gridY, state.crops, SEEDS)) {
-                this.player.gridX = Math.floor(MAP_WIDTH / 2);
-                this.player.gridY = Math.floor(MAP_HEIGHT / 2);
-                this.player.visX = this.player.gridX * TILE_SIZE;
-                this.player.visY = this.player.gridY * TILE_SIZE;
+            if (this.player) {
+                if (this.player.gridX >= MAP_WIDTH || this.player.gridY >= MAP_HEIGHT ||
+                    isSolid(state.map, this.player.gridX, this.player.gridY, state.crops, SEEDS)) {
+                    this.player.gridX = Math.floor(MAP_WIDTH / 2);
+                    this.player.gridY = Math.floor(MAP_HEIGHT / 2);
+                    this.player.visX = this.player.gridX * TILE_SIZE;
+                    this.player.visY = this.player.gridY * TILE_SIZE;
+                }
             }
 
             setState({ screen: 'GAME' });
@@ -170,13 +202,15 @@ export class Game {
     startNewGame() {
         const { map, npcs } = generateMap();
 
-        this.player.gridX = Math.floor(MAP_WIDTH / 2);
-        this.player.gridY = Math.floor(MAP_HEIGHT / 2);
-        this.player.visX = this.player.gridX * TILE_SIZE;
-        this.player.visY = this.player.gridY * TILE_SIZE;
-        this.player.facing = { x: 0, y: 1 };
+        if (this.player) {
+            this.player.gridX = Math.floor(MAP_WIDTH / 2);
+            this.player.gridY = Math.floor(MAP_HEIGHT / 2);
+            this.player.visX = this.player.gridX * TILE_SIZE;
+            this.player.visY = this.player.gridY * TILE_SIZE;
+            this.player.facing = { x: 0, y: 1 };
+        }
 
-        this.uiManager.setupEquipment(this.player);
+        if (this.player) this.uiManager.setupEquipment(this.player);
 
         this.inventory = new Inventory();
         this.inventory.addItem('turnip_seed', 5);
@@ -192,17 +226,19 @@ export class Game {
             if (!this.petIntroTriggered) this.triggerPetIntro();
         }, 1000);
 
-        setState({
-            screen: 'GAME',
-            map,
-            npcs: npcs || [],
-            player: this.player.serialize(),
-            inventory: this.inventory.serialize(),
-            crops: {},
-            money: 100,
-            zoom: 1.0,
-            ...this.timeSystem.serialize()
-        });
+        if (this.timeSystem && this.player && this.inventory) {
+            setState({
+                screen: 'GAME',
+                map,
+                npcs: npcs || [],
+                player: this.player.serialize(),
+                inventory: this.inventory.serialize(),
+                crops: {},
+                money: 100,
+                zoom: 1.0,
+                ...this.timeSystem.serialize()
+            });
+        }
 
         this.uiManager.setCreatorVisible(false);
         this.setupInput();
@@ -226,6 +262,8 @@ export class Game {
      * Setup input handlers
      */
     setupInput() {
+        if (!this.player) return;
+
         this.inputManager.enable();
 
         this.inputManager.onMove((dx, dy) => {
@@ -237,6 +275,7 @@ export class Game {
         });
 
         this.inputManager.onClick((tileX, tileY) => {
+            if (!this.player) return;
             const state = getState();
             if (state.screen !== 'GAME') return;
 
@@ -259,10 +298,12 @@ export class Game {
         });
 
         // Setup canvas input
-        this.inputManager.setupCanvasInput(this.canvas, (screenX, screenY) => {
-            const state = getState();
-            return this.renderer.screenToTile(screenX, screenY, state.camera, state.zoom);
-        });
+        if (this.canvas) {
+            this.inputManager.setupCanvasInput(this.canvas, (screenX, screenY) => {
+                const state = getState();
+                return this.renderer.screenToTile(screenX, screenY, state.camera, state.zoom);
+            });
+        }
 
         // Setup FAB
         const fabBtn = document.getElementById('fab-action');
@@ -273,7 +314,7 @@ export class Game {
         // Setup zoom buttons
         const zoomBtns = document.querySelectorAll('.zoom-btn');
         if (zoomBtns.length >= 2) {
-            this.inputManager.setupZoomButtons(zoomBtns[0], zoomBtns[1]);
+            this.inputManager.setupZoomButtons(zoomBtns[0] as HTMLElement, zoomBtns[1] as HTMLElement);
         }
     }
 
@@ -281,7 +322,8 @@ export class Game {
      * Attempt to move player
      * Handles input buffering
      */
-    attemptMove(dx, dy) {
+    attemptMove(dx: number, dy: number) {
+        if (!this.player) return;
         const state = getState();
         if (state.screen !== 'GAME') return;
 
@@ -315,7 +357,7 @@ export class Game {
     /**
      * Main game loop
      */
-    loop(lastTime) {
+    loop(lastTime: number) {
         if (!this.isRunning) return;
 
         const now = performance.now();
@@ -330,7 +372,8 @@ export class Game {
     /**
      * Update game state
      */
-    update(dt) {
+    update(dt: number) {
+        if (!this.player || !this.timeSystem) return;
         const state = getState();
         if (state.screen !== 'GAME') return;
 
@@ -422,7 +465,7 @@ export class Game {
 
                     // Show naming modal
                     const modal = new PetNameModal(this.uiManager, (name) => {
-                        this.pet.name = name;
+                        if (this.pet) this.pet.name = name;
                         this.showToast(`Adopted ${name}!`, '#ffb74d');
                         saveGame();
                     });
@@ -435,7 +478,8 @@ export class Game {
     /**
      * Process pathfinding to destination
      */
-    processPathfinding(state) {
+    processPathfinding(state: GameState) {
+        if (!this.player || !state.destination) return;
         const dest = state.destination;
         const dx = dest.x - this.player.gridX;
         const dy = dest.y - this.player.gridY;
@@ -448,7 +492,8 @@ export class Game {
         const sx = Math.sign(dx);
         const sy = Math.sign(dy);
 
-        const tryMove = (ax, ay) => {
+        const tryMove = (ax: number, ay: number) => {
+            if (!this.player) return false;
             if (!isSolid(state.map, this.player.gridX + ax, this.player.gridY + ay, state.crops, SEEDS)) {
                 this.player.gridX += ax;
                 this.player.gridY += ay;
@@ -475,12 +520,21 @@ export class Game {
         }
     }
 
+    interactWithSelected(idx: number) {
+        // Handle slot selection (just highlight/equip logic separation)
+        if (this.inventory) {
+            this.inventory.selected = idx;
+            this.syncInventory();
+            this.updateUI();
+        }
+    }
+
     /**
      * Interact with facing tile
      */
     interact() {
         const state = getState();
-        if (state.screen !== 'GAME') return;
+        if (state.screen !== 'GAME' || !this.player || !this.inventory || !this.timeSystem) return;
 
         const { gridX, gridY, facing } = this.player;
         const tx = gridX + facing.x;
@@ -497,7 +551,7 @@ export class Game {
         const selectedItem = this.inventory.getSelectedItem();
 
         // Check for NPC interaction on the current map
-        let currentNpcs = [];
+        let currentNpcs: any[] = [];
         if (state.currentMap === 'overworld') {
             currentNpcs = state.npcs || [];
         } else {
@@ -525,7 +579,7 @@ export class Game {
         // Shop Counter - Open Shop
         if (state.currentMap.includes('shop') && tile === INTERIOR_TILES.COUNTER) {
             setState({ screen: 'SHOP' });
-            this.shopModal.show(this.inventory, this.timeSystem.season);
+            if (this.shopModal) this.shopModal.show(this.inventory, this.timeSystem.season);
             return;
         }
 
@@ -538,7 +592,7 @@ export class Game {
         // Interior stove - cooking
         if (state.currentMap !== 'overworld' && tile === INTERIOR_TILES.STOVE) {
             setState({ screen: 'COOKING' });
-            this.cookingModal.show(this.inventory);
+            if (this.cookingModal) this.cookingModal.show(this.inventory);
             return;
         }
 
@@ -622,14 +676,14 @@ export class Game {
                 // Check season validity
                 if (seedData.seasons && !seedData.seasons.includes(this.timeSystem.season)) {
                     const seasonNames = ['Spring', 'Summer', 'Fall', 'Winter'];
-                    const validSeasons = seedData.seasons.map(s => seasonNames[s]).join('/');
+                    const validSeasons = seedData.seasons.map((s: number) => seasonNames[s]).join('/');
                     this.showToast(`${seedData.name}: ${validSeasons} only!`, '#ef5350');
                     return;
                 }
 
                 if (this.timeSystem.consumeEnergy(ENERGY_COST.PLANT)) {
                     this.inventory.removeFromSlot(this.inventory.selected, 1);
-                    state.crops[key] = { type, stage: 0 };
+                    state.crops[key] = { type, stage: 0, x: tx, y: ty }; // Ensure properties are set
                     this.showToast('Planted ' + seedData.name);
                     this.syncInventory();
                     saveGame();
@@ -651,11 +705,11 @@ export class Game {
 
                 if (data.isTree) {
                     // Fruit tree - regrows fruit
-                    crop.stage = data.regrow;
+                    crop.stage = data.regrow || 0;
                     this.showToast('Harvested ' + data.name);
                 } else if (data.regrowable) {
                     // Regrowable crop (corn, tomato, etc.) - resets to regrowStage
-                    crop.stage = data.regrowStage;
+                    crop.stage = data.regrowStage || 0;
                     this.showToast('Harvested ' + data.name + '!');
                 } else {
                     // Single harvest crop - destroyed after harvest
@@ -694,7 +748,8 @@ export class Game {
     /**
      * Generic Enter Building
      */
-    enterBuilding(type) {
+    enterBuilding(type: string) {
+        if (!this.player) return;
         const state = getState();
         if (state.currentMap !== 'overworld') return; // Fix infinite loop/re-entry
 
@@ -746,11 +801,12 @@ export class Game {
      * Exit building - return to overworld
      */
     exitHouse() {
+        if (!this.player) return;
         const state = getState();
 
         // Restore overworld position (in front of door)
         // Adjust logic to place player correctly adjacent to the building if needed
-        let lastPos = state.lastOverworldPos || {
+        const lastPos = state.lastOverworldPos || {
             x: Math.floor(MAP_WIDTH / 2),
             y: Math.floor(MAP_HEIGHT / 2)
         };
@@ -780,6 +836,7 @@ export class Game {
      * Sleep and start new day
      */
     sleep() {
+        if (!this.timeSystem) return;
         const state = getState();
         this.timeSystem.startNewDay();
         this.showToast(`Day ${this.timeSystem.dayCount}: ${this.timeSystem.getSeasonName()}, ${this.timeSystem.getWeatherMessage()}`);
@@ -796,7 +853,8 @@ export class Game {
     /**
      * Handle season change - wither crops that can't grow in new season
      */
-    handleSeasonChange(state) {
+    handleSeasonChange(state: GameState) {
+        if (!this.timeSystem) return;
         const currentSeason = this.timeSystem.season;
         const seasonNames = ['Spring', 'Summer', 'Fall', 'Winter'];
         let witheredCount = 0;
@@ -832,7 +890,8 @@ export class Game {
     /**
      * Buy item from shop
      */
-    buyItem(seedType) {
+    buyItem(seedType: string) {
+        if (!this.inventory) return;
         const state = getState();
         const cost = SEEDS[seedType].cost;
 
@@ -850,7 +909,8 @@ export class Game {
     /**
      * Sell item
      */
-    sellItem(slotIndex, value) {
+    sellItem(slotIndex: number, value: number) {
+        if (!this.inventory) return;
         const state = getState();
         this.inventory.removeFromSlot(slotIndex, 1);
         setState({ money: state.money + value });
@@ -861,44 +921,57 @@ export class Game {
     /**
      * Equip item from inventory
      */
-    equipItem(slotIndex) {
-        const state = getState();
+    equipItem(slotIndex: number) {
+        if (!this.inventory || !this.player) return;
         const item = this.inventory.slots[slotIndex];
         if (!item) return;
 
-        const data = ITEM_DATA[item.name] || SEEDS[item.name];
-        if (!data || !data.type) return;
+        // Check if item is equipment
+        // Check ITEMS (likely upper case keys) or SEEDS
+        const data = ITEMS[item.name.toUpperCase()] || SEEDS[item.name];
 
-        // Weapon/Equipment logic
-        if (data.type === 'weapon') {
+        if (data && (data as any).type === 'weapon') {
+            // Equip weapon
             const oldWeapon = this.player.equipment.weapon;
-            this.player.equipment.weapon = { ...data, key: item.name };
 
             // Remove from inventory
             this.inventory.removeFromSlot(slotIndex, 1);
 
-            // Return old weapon if exists
+            // Equip new
+            this.player.equipment.weapon = {
+                name: item.name,
+                type: 'weapon', // data.type should be 'weapon'
+                attack: (data as any).attack || 0
+            };
+
+            // Return old weapon to inventory if any
             if (oldWeapon) {
-                this.inventory.addItem(oldWeapon.key, 1);
+                this.inventory.addItem(oldWeapon.name, 1);
             }
 
-            this.showToast(`Equipped ${data.name}`);
-        } else {
-            this.showToast(`Cannot equip ${item.name}`);
-            return;
-        }
+            // Show message
+            this.showToast(`Equipped ${data.name}!`, '#4caf50');
 
-        setState({ player: this.player.serialize() });
-        this.syncInventory();
-        if (this.uiManager.equipmentModal) this.uiManager.equipmentModal.render();
-        saveGame();
+            // Update UI
+            if (this.uiManager) {
+                if (this.uiManager.equipmentModal) {
+                    this.uiManager.equipmentModal.render(); // Refresh modal if open
+                }
+                // Refresh inventory
+                this.syncInventory();
+            }
+        } else {
+            // Can't equip this message?
+            // or just ignore
+            // console.log("Cannot equip", item.name);
+        }
     }
 
     /**
      * Attack with equipped weapon
      */
     attack() {
-        if (!this.player.equipment.weapon) return;
+        if (!this.player || !this.player.equipment.weapon) return;
         if (this.attackCooldown > 0) return;
 
         this.attackCooldown = 20; // ~0.3s at 60fps
@@ -924,6 +997,7 @@ export class Game {
      * Close shop
      */
     closeShop() {
+        if (!this.shopModal) return;
         setState({ screen: 'GAME' });
         this.shopModal.hide();
     }
@@ -931,7 +1005,8 @@ export class Game {
     /**
      * Consume a food item from inventory
      */
-    consumeFoodItem(slotIdx) {
+    consumeFoodItem(slotIdx: number) {
+        if (!this.inventory || !this.timeSystem || !this.player) return;
         const item = this.inventory.slots[slotIdx];
         if (!item) return;
 
@@ -974,13 +1049,15 @@ export class Game {
      * Sync inventory to state
      */
     syncInventory() {
-        setState({ inventory: this.inventory.serialize() });
+        if (this.inventory) {
+            setState({ inventory: this.inventory.serialize() });
+        }
     }
 
     /**
      * Show toast message
      */
-    showToast(text, color = 'white') {
+    showToast(text: string, color: string = 'white') {
         const state = getState();
         state.messages.push({ text, color, life: 60 });
     }
@@ -989,6 +1066,7 @@ export class Game {
      * Update UI
      */
     updateUI() {
+        if (!this.inventory || !this.timeSystem || !this.player) return;
         const state = getState();
 
         this.uiManager.renderInventory(this.inventory);
@@ -1009,6 +1087,7 @@ export class Game {
      * Draw the game
      */
     draw() {
+        if (!this.player || !this.timeSystem) return;
         const state = getState();
         if (state.screen === 'CREATOR') return;
 
@@ -1069,10 +1148,6 @@ export class Game {
                 if (state.currentMap === 'overworld') {
                     // Only draw NOT ground tiles (Trees, Buildings)
                     if (tile !== TILES.GRASS && tile !== TILES.SOIL && tile !== TILES.WITHERED) {
-                        // For buildings, we only want to draw the full building when we hit the BOTTOM row of its 3x3 footprint 
-                        // so that players standing "behind" it (in higher rows) are drawn before it.
-                        // However, isTopLeftCorner logic draws it all. Let's adjust for depth sorting.
-                        // Simplification: just draw it. True y-sorting for multi-tile objects is tricky but this helps.
                         this.tileRenderer.drawTile(tile, x, y, this.timeSystem.season, currentMap);
                     }
                     const crop = state.crops[`${x},${y}`];
@@ -1096,7 +1171,7 @@ export class Game {
                 : (state.interiors[state.currentMap.replace('Interior', '')]?.npcs || []);
 
             if (currentNpcs) {
-                currentNpcs.forEach(npc => {
+                currentNpcs.forEach((npc: any) => {
                     const npcBottomY = (npc.y + 1) * TILE_SIZE;
                     if (npcBottomY > rowTopY && npcBottomY <= rowBottomY) {
                         this.tileRenderer.drawNPC(this.renderer.ctx, npc.x * TILE_SIZE, npc.y * TILE_SIZE, npc.id);
@@ -1113,6 +1188,8 @@ export class Game {
             }
 
             // Player
+            // Fix: player visY is strictly top-left, center is +TILE_SIZE/2
+            // Pivot is feet -> +TILE_SIZE
             const playerBottomY = this.player.visY + TILE_SIZE;
             if (playerBottomY > rowTopY && playerBottomY <= rowBottomY) {
                 this.player.draw(this.renderer.ctx, this.player.visX + TILE_SIZE / 2, this.player.visY + TILE_SIZE / 2);
@@ -1165,7 +1242,7 @@ export class Game {
             this.renderer.drawLightingOverlay(darkness, lights);
         }
 
-        this.renderer.drawFacingIndicator(this.player.gridX, this.player.gridY, this.player.facing);
+        this.renderer.drawFacingIndicator();
         this.particleSystem.drawParticles(this.renderer.ctx);
 
         if (this.timeSystem.weather === 'Rain' && state.currentMap === 'overworld') {
@@ -1186,7 +1263,7 @@ export class Game {
     /**
      * Get current map array based on state
      */
-    getCurrentMap(state) {
+    getCurrentMap(state: GameState): number[][] {
         if (state.currentMap === 'overworld') {
             return state.map;
         } else {
@@ -1199,7 +1276,7 @@ export class Game {
     /**
      * Check if a tile is solid (blocks movement)
      */
-    isTileSolid(state, x, y) {
+    isTileSolid(state: GameState, x: number, y: number): boolean {
         const currentMap = this.getCurrentMap(state);
 
         if (y < 0 || y >= currentMap.length || x < 0 || x >= currentMap[0].length) {
@@ -1209,7 +1286,7 @@ export class Game {
         const tile = currentMap[y][x];
 
         // Check for NPC collision on the current map
-        let currentNpcs = [];
+        let currentNpcs: any[] = [];
         if (state.currentMap === 'overworld') {
             currentNpcs = state.npcs || [];
         } else {
@@ -1230,38 +1307,12 @@ export class Game {
         return isSolid(state.map, x, y, state.crops, SEEDS);
     }
 
-    /**
-     * Override draw to support interior maps
-     */
-    drawCurrentMap(state, range) {
-        const currentMap = this.getCurrentMap(state);
-        const mapHeight = currentMap.length;
-        const mapWidth = currentMap[0]?.length || 0;
-
-        for (let y = range.startY; y < range.endY; y++) {
-            for (let x = range.startX; x < range.endX; x++) {
-                if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) continue;
-
-                const tile = currentMap[y][x];
-
-                if (state.currentMap === 'overworld') {
-                    this.tileRenderer.drawTile(tile, x, y, this.timeSystem.season, state.map);
-
-                    const crop = state.crops[`${x},${y}`];
-                    if (crop) {
-                        this.tileRenderer.drawCrop(crop, x, y);
-                    }
-                } else {
-                    this.tileRenderer.drawInteriorTile(tile, x, y);
-                }
-            }
-        }
-    }
 
     /**
      * Hit a resource tile (tree/stone) with Durability tracking
      */
-    hitResource(x, y, resourceTypeKey) {
+    hitResource(x: number, y: number, resourceTypeKey: string) {
+        if (!this.timeSystem || !this.inventory) return;
         const state = getState();
         const resourceType = RESOURCE_TYPES[resourceTypeKey];
 
@@ -1271,7 +1322,7 @@ export class Game {
         }
 
         // Check if resource has toughness or hp defined (handle legacy/reload states)
-        const toughness = resourceType.toughness !== undefined ? resourceType.toughness : (resourceType.hp || 1);
+        const toughness = resourceType.toughness !== undefined ? resourceType.toughness : ((resourceType as any).hp || 1);
 
         // Check energy
         if (!this.timeSystem.consumeEnergy(resourceType.energyCost)) {
@@ -1333,7 +1384,7 @@ export class Game {
     /**
      * Interact with NPC
      */
-    interactWithNPC(npc) {
+    interactWithNPC(npc: any) {
         const state = getState();
 
         if (npc.id === NPC_IDS.OLD_MAN) {
@@ -1341,6 +1392,7 @@ export class Game {
                 this.uiManager.showDialogue(
                     "It's dangerous to go alone! Take this.",
                     () => {
+                        if (!this.inventory || !this.player) return; // TS Check
                         this.inventory.addItem('WOODEN_SWORD', 1);
                         if (!this.player.questFlags) this.player.questFlags = {};
                         this.player.questFlags.hasSword = true;
@@ -1351,10 +1403,11 @@ export class Game {
                     }
                 );
             } else {
-                this.uiManager.showDialogue("Be careful out there, young farmer.");
+                this.uiManager.showDialogue("Be careful out there, young farmer.", () => { });
             }
         }
     }
+
 }
 
 export default Game;

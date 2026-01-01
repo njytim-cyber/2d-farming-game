@@ -3,7 +3,27 @@
  * Visual particle effects for actions
  */
 
+interface Particle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number;
+    color: string;
+}
+
+interface RainParticle {
+    x: number;
+    y: number;
+    length: number;
+    velocity: number;
+    isSnow: boolean;
+}
+
 export class ParticleSystem {
+    particles: Particle[];
+    rainParticles: RainParticle[];
+
     constructor() {
         this.particles = [];
         this.rainParticles = [];
@@ -11,12 +31,8 @@ export class ParticleSystem {
 
     /**
      * Create burst particles at position
-     * @param {number} worldX - World X position
-     * @param {number} worldY - World Y position
-     * @param {string} color - Particle color
-     * @param {number} count - Number of particles
      */
-    createBurst(worldX, worldY, color, count = 8) {
+    createBurst(worldX: number, worldY: number, color: string, count: number = 8) {
         for (let i = 0; i < count; i++) {
             this.particles.push({
                 x: worldX,
@@ -31,12 +47,8 @@ export class ParticleSystem {
 
     /**
      * Add rain particles
-     * @param {number} cameraX 
-     * @param {number} cameraY 
-     * @param {number} viewWidth 
-     * @param {boolean} isSnow 
      */
-    addRain(cameraX, cameraY, viewWidth, isSnow = false) {
+    addRain(cameraX: number, cameraY: number, viewWidth: number, isSnow: boolean = false) {
         if (Math.random() < 0.3) {
             this.rainParticles.push({
                 x: Math.random() * viewWidth + cameraX,
@@ -50,10 +62,8 @@ export class ParticleSystem {
 
     /**
      * Update all particles
-     * @param {number} cameraY 
-     * @param {number} viewHeight 
      */
-    update(cameraY, viewHeight) {
+    update(cameraY: number, viewHeight: number) {
         // Update burst particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
@@ -85,9 +95,8 @@ export class ParticleSystem {
 
     /**
      * Draw burst particles
-     * @param {CanvasRenderingContext2D} ctx 
      */
-    drawParticles(ctx) {
+    drawParticles(ctx: CanvasRenderingContext2D) {
         for (const p of this.particles) {
             ctx.fillStyle = p.color;
             ctx.fillRect(p.x, p.y, 4, 4);
@@ -96,10 +105,8 @@ export class ParticleSystem {
 
     /**
      * Draw rain/snow
-     * @param {CanvasRenderingContext2D} ctx 
-     * @param {boolean} isWinter 
      */
-    drawRain(ctx, isWinter = false) {
+    drawRain(ctx: CanvasRenderingContext2D, isWinter: boolean = false) {
         if (this.rainParticles.length === 0) return;
 
         if (isWinter) {

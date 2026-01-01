@@ -3,11 +3,25 @@
  * Follows the player and wanders around
  */
 
-import { TILE_SIZE, MOVEMENT_SPEED } from '../game/constants.js';
-import { getState } from '../game/state.js';
+import { TILE_SIZE } from '../game/constants';
+import { Position } from '../game/state';
+import { Player } from './Player';
 
 export class Pet {
-    constructor(x, y) {
+    gridX: number;
+    gridY: number;
+    visX: number;
+    visY: number;
+    isMoving: boolean;
+    facing: Position;
+    name: string;
+    color: string;
+    speed: number;
+    state: 'IDLE' | 'FOLLOW' | 'WANDER';
+    moveTimer: number;
+    target: Position | null;
+
+    constructor(x: number, y: number) {
         this.gridX = x;
         this.gridY = y;
         this.visX = x * TILE_SIZE;
@@ -26,7 +40,7 @@ export class Pet {
         this.target = null;
     }
 
-    update(dt, player) {
+    update(dt: number, player: Player) {
         // Safety check for NaN coordinates
         if (isNaN(this.visX) || isNaN(this.visY)) {
             this.visX = this.gridX * TILE_SIZE;
@@ -61,7 +75,7 @@ export class Pet {
         }
     }
 
-    moveTowards(targetX, targetY) {
+    moveTowards(targetX: number, targetY: number) {
         const dx = Math.sign(targetX - this.gridX);
         const dy = Math.sign(targetY - this.gridY);
 
@@ -74,7 +88,7 @@ export class Pet {
         }
     }
 
-    tryMove(dx, dy) {
+    tryMove(dx: number, dy: number) {
         if (dx === 0 && dy === 0) return;
 
         // Simple collision check (can improve later/pass collision fn)
@@ -91,7 +105,7 @@ export class Pet {
         this.isMoving = true;
     }
 
-    continueMove(dt) {
+    continueMove(dt: number) {
         const targetX = this.gridX * TILE_SIZE;
         const targetY = this.gridY * TILE_SIZE;
         const speed = this.speed * dt;
@@ -118,7 +132,7 @@ export class Pet {
         };
     }
 
-    draw(ctx, x, y) {
+    draw(ctx: CanvasRenderingContext2D, x: number, y: number) {
         const drawX = x - 15;
         const drawY = y - 10;
         const bob = this.isMoving ? Math.sin(Date.now() / 80) * 3 : 0;

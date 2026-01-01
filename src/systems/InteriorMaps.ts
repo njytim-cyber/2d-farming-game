@@ -1,15 +1,20 @@
-import { INTERIOR_TILES } from '../game/constants.js';
-
 /**
  * Generate house interior (10x10)
  */
-export function generateHouseInterior() {
+import { INTERIOR_TILES } from '../game/constants';
+
+interface InteriorResult {
+    map: number[][];
+    npcs: any[]; // Define NPC type
+}
+
+export function generateHouseInterior(): InteriorResult {
     const width = 10;
     const height = 10;
-    const map = [];
+    const map: number[][] = [];
 
     for (let y = 0; y < height; y++) {
-        const row = [];
+        const row: number[] = [];
         for (let x = 0; x < width; x++) {
             if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
                 if (y === height - 1 && (x === 4 || x === 5)) {
@@ -42,13 +47,13 @@ export function generateHouseInterior() {
 /**
  * Generate shop interior (16x12)
  */
-export function generateShopInterior() {
+export function generateShopInterior(): InteriorResult {
     const width = 16;
     const height = 12;
-    const map = [];
+    const map: number[][] = [];
 
     for (let y = 0; y < height; y++) {
-        const row = [];
+        const row: number[] = [];
         for (let x = 0; x < width; x++) {
             if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
                 if (y === height - 1 && (x === 7 || x === 8)) {
@@ -128,13 +133,13 @@ export function generateShopInterior() {
 /**
  * Generate Old House (Abandoned Shack) interior (12x10)
  */
-export function generateOldHouseInterior() {
+export function generateOldHouseInterior(): InteriorResult {
     const width = 12;
     const height = 10;
-    const map = [];
+    const map: number[][] = [];
 
     for (let y = 0; y < height; y++) {
-        const row = [];
+        const row: number[] = [];
         for (let x = 0; x < width; x++) {
             if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
                 if (y === height - 1 && (x === 5 || x === 6)) {
@@ -167,7 +172,7 @@ export function generateOldHouseInterior() {
 /**
  * Check if interior tile is solid
  */
-export function isInteriorSolid(tileType) {
+export function isInteriorSolid(tileType: number): boolean {
     return tileType === INTERIOR_TILES.WALL ||
         tileType === INTERIOR_TILES.TABLE ||
         tileType === INTERIOR_TILES.BED ||
@@ -181,10 +186,15 @@ export function isInteriorSolid(tileType) {
     // CHAIR, RUG, FLOOR, DOOR are not solid
 }
 
+interface SpawnPoint {
+    x: number;
+    y: number;
+}
+
 /**
  * Get spawn position when entering an interior
  */
-export function getInteriorSpawn(interiorType) {
+export function getInteriorSpawn(interiorType: string): SpawnPoint {
     switch (interiorType) {
         case 'house':
             return { x: 4, y: 7 };

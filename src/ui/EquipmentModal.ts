@@ -3,10 +3,15 @@
  * Handles character equipment and stats
  */
 
-import { Inventory } from '../systems/Inventory.js';
+import { Inventory } from '../systems/Inventory';
+import { Player } from '../entities/Player';
 
 export class EquipmentModal {
-    constructor(player) {
+    player: Player;
+    modal: HTMLElement | null;
+    isVisible: boolean;
+
+    constructor(player: Player) {
         this.player = player;
         this.modal = null;
         this.isVisible = false;
@@ -15,7 +20,7 @@ export class EquipmentModal {
     /**
      * Setup UI elements
      */
-    setupUI(modalElement) {
+    setupUI(modalElement: HTMLElement) {
         this.modal = modalElement;
 
         // Modal content
@@ -59,13 +64,14 @@ export class EquipmentModal {
         this.modal.appendChild(content);
 
         // Close button
-        content.querySelector('.btn--close').onclick = () => this.hide();
+        const closeBtn = content.querySelector('.btn--close') as HTMLElement;
+        if (closeBtn) closeBtn.onclick = () => this.hide();
 
         // Slot interactions (placeholder for now)
         content.querySelectorAll('.equipment-slot').forEach(slot => {
-            slot.onclick = () => {
+            (slot as HTMLElement).onclick = () => {
                 // Future: Open selection modal
-                console.log('Clicked slot:', slot.dataset.slot);
+                console.log('Clicked slot:', (slot as HTMLElement).dataset.slot);
             };
         });
     }
@@ -74,15 +80,16 @@ export class EquipmentModal {
      * Render current equipment
      */
     render() {
-        if (!this.player.equipment) return;
+        if (!this.player.equipment || !this.modal) return;
 
         const slots = this.modal.querySelectorAll('.equipment-slot');
-        slots.forEach(slot => {
-            const slotType = slot.dataset.slot;
+        slots.forEach(slotEl => {
+            const slot = slotEl as HTMLElement;
+            const slotType = slot.dataset.slot as 'head' | 'body' | 'legs' | 'weapon' | 'offhand';
             const item = this.player.equipment[slotType];
 
             if (item) {
-                slot.innerHTML = Inventory.getIcon(item.key || item.name);
+                slot.innerHTML = Inventory.getIcon(item.name); // Using name as key for now based on JS
                 slot.classList.add('has-item');
             } else {
                 // Default placeholders handled by CSS/Initial HTML
@@ -96,9 +103,9 @@ export class EquipmentModal {
         });
 
         // Update stats
-        const attackEl = this.modal.querySelector('#stat-attack');
-        const defenseEl = this.modal.querySelector('#stat-defense');
-        if (attackEl) attackEl.innerText = this.player.getAttack();
+        const attackEl = this.modal.querySelector('#stat-attack') as HTMLElement;
+        const defenseEl = this.modal.querySelector('#stat-defense') as HTMLElement;
+        if (attackEl) attackEl.innerText = this.player.getAttack().toString();
         if (defenseEl) defenseEl.innerText = '0';
     }
 
@@ -106,6 +113,7 @@ export class EquipmentModal {
      * Show modal
      */
     show() {
+        if (!this.modal) return;
         this.isVisible = true;
         this.modal.classList.add('modal-overlay--active');
         this.render();
@@ -115,6 +123,7 @@ export class EquipmentModal {
      * Hide modal
      */
     hide() {
+        if (!this.modal) return;
         this.isVisible = false;
         this.modal.classList.remove('modal-overlay--active');
     }

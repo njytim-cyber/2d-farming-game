@@ -11,13 +11,36 @@ import {
     DAY_LENGTH,
     DAY_START_HOUR,
     DAY_DURATION_HOURS
-} from '../game/constants.js';
+} from '../game/constants';
+
+interface TimeState {
+    dayTime?: number;
+    dayLength?: number;
+    dayCount?: number;
+    season?: number;
+    weather?: 'Sunny' | 'Rain';
+    energy?: number;
+    maxEnergy?: number;
+}
+
+type DayEndCallback = (timeSystem: TimeSystem) => void;
 
 /**
  * Time System class
  */
 export class TimeSystem {
-    constructor(state = {}) {
+    dayTime: number;
+    dayLength: number;
+    dayCount: number;
+    season: number;
+    weather: 'Sunny' | 'Rain';
+    energy: number;
+    maxEnergy: number;
+    seasonChanged: boolean = false;
+
+    private onDayEndCallbacks: DayEndCallback[];
+
+    constructor(state: TimeState = {}) {
         this.dayTime = state.dayTime || 0;
         this.dayLength = state.dayLength || DAY_LENGTH;
         this.dayCount = state.dayCount || 1;
@@ -29,10 +52,17 @@ export class TimeSystem {
         this.onDayEndCallbacks = [];
     }
 
+    get hour(): number {
+        const progress = this.dayTime / this.dayLength;
+        const totalHours = progress * DAY_DURATION_HOURS;
+        let currentHour = DAY_START_HOUR + totalHours;
+        return currentHour % 24;
+    }
+
     /**
      * Subscribe to day end events
      */
-    onDayEnd(callback) {
+    onDayEnd(callback: DayEndCallback): () => void {
         this.onDayEndCallbacks.push(callback);
         return () => {
             const idx = this.onDayEndCallbacks.indexOf(callback);
@@ -44,7 +74,7 @@ export class TimeSystem {
      * Update time (called each frame)
      * @returns {boolean} Whether a new day started
      */
-    update() {
+    update(): boolean {
         this.dayTime++;
 
         if (this.dayTime > this.dayLength) {
@@ -81,7 +111,7 @@ export class TimeSystem {
     /**
      * Get current time as formatted string (HH:MM)
      */
-    getTimeString() {
+    getTimeString(): string {
         const progress = this.dayTime / this.dayLength;
         // Day spans 6:00 to 2:00 (20 hours = 1200 minutes)
         const totalMinutes = Math.floor(progress * DAY_DURATION_HOURS * 60);
@@ -101,14 +131,14 @@ export class TimeSystem {
     /**
      * Get day progress (0-1)
      */
-    getDayProgress() {
+    getDayProgress(): number {
         return this.dayTime / this.dayLength;
     }
 
     /**
      * Get night overlay alpha (starts at 60% of day)
      */
-    getNightAlpha() {
+    getNightAlpha(): number {
         const progress = this.getDayProgress();
         if (progress <= 0.6) return 0;
         return Math.min(0.85, (progress - 0.6) * 3);
@@ -117,21 +147,21 @@ export class TimeSystem {
     /**
      * Get current season name
      */
-    getSeasonName() {
+    getSeasonName(): string {
         return SEASONS[this.season];
     }
 
     /**
      * Get current season icon
      */
-    getSeasonIcon() {
+    getSeasonIcon(): string {
         return SEASON_ICONS[this.season];
     }
 
     /**
      * Get weather icon
      */
-    getWeatherIcon() {
+    getWeatherIcon(): string {
         if (this.weather !== 'Rain') return '';
         return this.season === 3 ? '🌨️' : '🌧️';
     }
@@ -139,7 +169,7 @@ export class TimeSystem {
     /**
      * Get weather message
      */
-    getWeatherMessage() {
+    getWeatherMessage(): string {
         if (this.weather === 'Rain') {
             return this.season === 3 ? 'Snowing!' : 'Raining!';
         }
@@ -151,7 +181,7 @@ export class TimeSystem {
      * @param {number} amount 
      * @returns {boolean} Whether action was possible
      */
-    consumeEnergy(amount) {
+    consumeEnergy(amount: number): boolean {
         if (this.energy >= amount) {
             this.energy -= amount;
             return true;
@@ -162,14 +192,14 @@ export class TimeSystem {
     /**
      * Restore energy (e.g., from sleeping)
      */
-    restoreEnergy(amount = this.maxEnergy) {
+    restoreEnergy(amount: number = this.maxEnergy) {
         this.energy = Math.min(this.energy + amount, this.maxEnergy);
     }
 
     /**
      * Get energy bar level class
      */
-    getEnergyLevel() {
+    getEnergyLevel(): string {
         if (this.energy < 20) return 'low';
         if (this.energy < 50) return 'medium';
         return 'normal';
@@ -178,7 +208,7 @@ export class TimeSystem {
     /**
      * Serialize for save
      */
-    serialize() {
+    serialize(): TimeState {
         return {
             dayTime: this.dayTime,
             dayLength: this.dayLength,
@@ -193,7 +223,7 @@ export class TimeSystem {
     /**
      * Create from serialized data
      */
-    static deserialize(data) {
+    static deserialize(data: TimeState): TimeSystem {
         return new TimeSystem(data);
     }
 }

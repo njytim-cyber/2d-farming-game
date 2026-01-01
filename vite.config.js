@@ -4,7 +4,7 @@ export default defineConfig({
   root: '.',
   publicDir: 'public',
   test: {
-    include: ['tests/unit/**/*.test.js'],
+    include: ['tests/unit/**/*.test.js', 'tests/unit/**/*.test.ts'],
     exclude: ['tests/e2e/**', 'tests/regression/**', '**/node_modules/**'],
     globals: false, // Don't inject globals that conflict with Playwright
   },
