@@ -2,10 +2,10 @@
  * Unit Tests for Core Game Systems
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Inventory } from '../src/systems/Inventory.js';
-import { TimeSystem } from '../src/systems/TimeSystem.js';
-import { generateMap, isSolid, getTile, setTile } from '../src/systems/MapGenerator.js';
-import { TILES, MAP_WIDTH, MAP_HEIGHT, SEEDS } from '../src/game/constants.js';
+import { Inventory } from '../../src/systems/Inventory.js';
+import { TimeSystem } from '../../src/systems/TimeSystem.js';
+import { generateMap, isSolid, getTile, setTile } from '../../src/systems/MapGenerator.js';
+import { TILES, MAP_WIDTH, MAP_HEIGHT, SEEDS } from '../../src/game/constants.js';
 
 describe('Inventory System', () => {
     let inventory;

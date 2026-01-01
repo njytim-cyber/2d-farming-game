@@ -109,7 +109,8 @@ export const INTERIOR_TILES = {
     SHELF: 19,
     PLANT: 20,
     TV: 21,
-    COUCH: 22
+    COUCH: 22,
+    CHAIR: 23
 };
 
 // === Seeds & Crops ===

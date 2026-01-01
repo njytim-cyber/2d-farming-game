@@ -731,13 +731,34 @@ export class TileRenderer {
                 // Floor
                 ctx.fillStyle = PALETTE.wood;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                // Rug
+                // Rug (More decorative, less like a chair)
                 ctx.fillStyle = PALETTE.red;
-                ctx.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6);
-                // Rug pattern
-                ctx.fillStyle = PALETTE.highlight;
-                ctx.fillRect(px + 8, py + 8, TILE_SIZE - 16, 4);
-                ctx.fillRect(px + 8, py + TILE_SIZE - 12, TILE_SIZE - 16, 4);
+                ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+                // Pattern
+                ctx.strokeStyle = PALETTE.highlight;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px + 8, py + 8, TILE_SIZE - 16, TILE_SIZE - 16);
+                break;
+
+            case INTERIOR_TILES.CHAIR:
+                // Floor
+                ctx.fillStyle = PALETTE.wood;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Chair Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.fillRect(px + 10, py + 10, TILE_SIZE - 20, TILE_SIZE - 20);
+                // Chair Legs
+                ctx.fillStyle = PALETTE.wood_dark;
+                ctx.fillRect(px + 12, py + 12, 4, 4);
+                ctx.fillRect(px + TILE_SIZE - 16, py + 12, 4, 4);
+                ctx.fillRect(px + 12, py + TILE_SIZE - 16, 4, 4);
+                ctx.fillRect(px + TILE_SIZE - 16, py + TILE_SIZE - 16, 4, 4);
+                // Chair Seat
+                ctx.fillStyle = PALETTE.wood;
+                ctx.fillRect(px + 10, py + 10, TILE_SIZE - 20, TILE_SIZE - 20);
+                // Chair Back
+                ctx.fillStyle = PALETTE.wood_dark;
+                ctx.fillRect(px + 10, py + 10, TILE_SIZE - 20, 6);
                 break;
 
             case INTERIOR_TILES.STOVE:

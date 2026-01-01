@@ -23,6 +23,8 @@ import { InputManager } from '../input/InputManager.js';
 import { UIManager } from '../ui/UIManager.js';
 import { CreatorModal } from '../ui/CreatorModal.js';
 import { ShopModal } from '../ui/ShopModal.js';
+import { CookingModal } from '../ui/CookingModal.js';
+import { CONSUMABLES, consumeFood } from '../systems/Recipes.js';
 
 export class Game {
     constructor() {
@@ -38,6 +40,7 @@ export class Game {
         this.timeSystem = null;
         this.creatorModal = null;
         this.shopModal = null;
+        this.cookingModal = null;
 
         this.isRunning = false;
         this.bufferedMove = null;
@@ -69,6 +72,17 @@ export class Game {
         // Setup house modal buttons
         this.setupHouseModal();
 
+        // Setup cooking modal
+        this.cookingModal = new CookingModal(this.uiManager, {
+            onCook: (recipeKey) => {
+                this.showToast(`Cooked ${recipeKey.replace(/_/g, ' ')}!`, '#81c784');
+                this.syncInventory();
+                saveGame();
+            },
+            onConsume: (slotIdx) => this.consumeFoodItem(slotIdx),
+            onClose: () => setState({ screen: 'GAME' })
+        });
+
         // Initialize with state
         const state = getState();
         this.player = new Player(state.player);
@@ -98,8 +112,15 @@ export class Game {
             sleepBtn.onclick = () => this.sleep();
         }
         if (leaveBtn) {
-            leaveBtn.onclick = () => this.exitHouse();
+            leaveBtn.onclick = () => this.closeHouseModal();
         }
+    }
+
+    /**
+     * Close house modal without exiting
+     */
+    closeHouseModal() {
+        this.uiManager.setHouseVisible(false);
     }
 
     /**
@@ -320,6 +341,9 @@ export class Game {
             this.player.update(dt);
         }
 
+        // Update player buffs
+        this.player.updateBuffs(dt);
+
         // Check input if not moving (or just finished moving)
         if (!this.player.isMoving) {
             // Check for step-on triggers (e.g. exiting house)
@@ -363,7 +387,7 @@ export class Game {
 
         // Update particles
         const view = this.renderer.getViewSize(state.zoom);
-        if (this.timeSystem.weather === 'Rain') {
+        if (this.timeSystem.weather === 'Rain' && state.currentMap === 'overworld') {
             this.particleSystem.addRain(state.camera.x, state.camera.y, view.width, this.timeSystem.season === 3);
         }
         this.particleSystem.update(state.camera.y, view.height);
@@ -511,9 +535,16 @@ export class Game {
             return;
         }
 
-        // Only allow outdoor interactions and Shop Counter in overworld/shop
+        // Interior stove - cooking
+        if (state.currentMap !== 'overworld' && tile === INTERIOR_TILES.STOVE) {
+            setState({ screen: 'COOKING' });
+            this.cookingModal.show(this.inventory);
+            return;
+        }
+
+        // Only allow outdoor interactions in overworld
         if (state.currentMap !== 'overworld' && !state.currentMap.includes('shop')) {
-            if (tile !== INTERIOR_TILES.BED) return;
+            return;
         }
 
         // Shop (Overworld)
@@ -758,7 +789,7 @@ export class Game {
             this.handleSeasonChange(state);
         }
 
-        this.exitHouse();
+        this.closeHouseModal();
         saveGame();
     }
 
@@ -898,6 +929,40 @@ export class Game {
     }
 
     /**
+     * Consume a food item from inventory
+     */
+    consumeFoodItem(slotIdx) {
+        const item = this.inventory.slots[slotIdx];
+        if (!item) return;
+
+        const consumable = CONSUMABLES[item.name];
+        if (!consumable) {
+            this.showToast('Cannot eat this!', '#ef5350');
+            return;
+        }
+
+        // Restore energy
+        this.timeSystem.energy = Math.min(
+            this.timeSystem.energy + consumable.energy,
+            this.timeSystem.maxEnergy
+        );
+
+        // Remove item
+        this.inventory.removeFromSlot(slotIdx, 1);
+
+        // Apply buff if any
+        if (consumable.buff) {
+            this.player.applyBuff(consumable.buff);
+            const buffName = consumable.buff.type.replace(/([A-Z])/g, ' $1').trim();
+            this.showToast(`${buffName} active!`, '#4fc3f7');
+        }
+
+        this.showToast(`+${consumable.energy} Energy`, '#81c784');
+        this.syncInventory();
+        saveGame();
+    }
+
+    /**
      * Reset game data
      */
     resetGameData() {
@@ -950,7 +1015,11 @@ export class Game {
         this.renderer.clear();
 
         // Update camera
-        const camera = this.renderer.updateCamera(this.player.visX, this.player.visY, state.zoom);
+        const currentMap = this.getCurrentMap(state);
+        const mapHeight = currentMap.length;
+        const mapWidth = currentMap[0]?.length || 0;
+
+        const camera = this.renderer.updateCamera(this.player.visX, this.player.visY, state.zoom, mapWidth, mapHeight);
         setState({ camera });
 
         // Begin world drawing
@@ -967,9 +1036,6 @@ export class Game {
         }
 
         const range = this.renderer.getVisibleTileRange(camera, state.zoom);
-        const currentMap = this.getCurrentMap(state);
-        const mapHeight = currentMap.length;
-        const mapWidth = currentMap[0]?.length || 0;
 
         // --- Pass 1: Ground Tiles ---
         for (let y = range.startY; y < range.endY; y++) {
@@ -1102,7 +1168,7 @@ export class Game {
         this.renderer.drawFacingIndicator(this.player.gridX, this.player.gridY, this.player.facing);
         this.particleSystem.drawParticles(this.renderer.ctx);
 
-        if (this.timeSystem.weather === 'Rain') {
+        if (this.timeSystem.weather === 'Rain' && state.currentMap === 'overworld') {
             this.particleSystem.drawRain(this.renderer.ctx, this.timeSystem.season === 3);
         }
 

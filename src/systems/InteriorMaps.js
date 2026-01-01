@@ -21,6 +21,8 @@ export function generateHouseInterior() {
                 row.push(INTERIOR_TILES.BED);
             } else if (y === 4 && (x === 4 || x === 5)) {
                 row.push(INTERIOR_TILES.TABLE);
+            } else if ((y === 4 || y === 5) && (x === 3 || x === 6)) {
+                row.push(INTERIOR_TILES.CHAIR);
             } else if (y >= 3 && y <= 5 && x >= 3 && x <= 6) {
                 row.push(INTERIOR_TILES.RUG);
             } else if (y === 1 && x === 8) {
@@ -176,6 +178,7 @@ export function isInteriorSolid(tileType) {
         tileType === INTERIOR_TILES.TV ||
         tileType === INTERIOR_TILES.COUCH ||
         tileType === INTERIOR_TILES.PLANT;
+    // CHAIR, RUG, FLOOR, DOOR are not solid
 }
 
 /**

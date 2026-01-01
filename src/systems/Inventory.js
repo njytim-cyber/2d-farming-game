@@ -138,6 +138,13 @@ export class Inventory {
     }
 
     /**
+     * Alias for getItemCount (used by CookingModal)
+     */
+    countItem(name) {
+        return this.getItemCount(name);
+    }
+
+    /**
      * Check if inventory is full
      */
     isFull() {

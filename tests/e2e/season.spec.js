@@ -1,6 +1,5 @@
-
 import { test, expect } from '@playwright/test';
-import { SEEDS, TILES } from '../src/game/constants';
+// Note: E2E tests access game state via window.game, not direct imports
 
 test.describe('Season Logic Tests', () => {
     test.beforeEach(async ({ page }) => {

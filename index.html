@@ -8,6 +8,7 @@
     <meta name="description" content="A cozy farming simulation RPG game">
     <meta name="theme-color" content="#4caf50">
     <title>Farming Sim RPG</title>
+    <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 
 <body>
@@ -90,7 +91,7 @@
                 It's warm and cozy inside.<br>What would you like to do?
             </div>
             <button class="btn btn--start">Sleep (Restore Energy)</button>
-            <button class="btn btn--secondary">Leave House</button>
+            <button class="btn btn--secondary">Get out of bed</button>
         </div>
     </div>
 
@@ -112,6 +113,24 @@
 
     <!-- Equipment Modal -->
     <div id="equipment-modal" class="modal-overlay"></div>
+
+    <!-- Cooking Modal -->
+    <div id="cooking-modal" class="modal-overlay">
+        <div class="modal-panel">
+            <button class="btn btn--close">×</button>
+            <div class="modal-title">🍳 Cooking</div>
+            <div class="modal-scroll">
+                <div class="cooking-section">
+                    <div class="cooking-section__title">Recipes</div>
+                    <div id="cooking-recipes" class="cooking-recipes"></div>
+                </div>
+                <div class="cooking-section">
+                    <div class="cooking-section__title">Your Cooked Foods</div>
+                    <div id="cooked-foods" class="cooked-foods"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Dialogue Modal -->
     <div id="dialogue-modal" class="modal-overlay" style="align-items: flex-end; justify-content: center;">

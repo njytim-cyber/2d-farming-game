@@ -45,15 +45,26 @@ export class Renderer {
     /**
      * Update camera position to follow player
      */
-    updateCamera(playerVisX, playerVisY, zoom) {
+    updateCamera(playerVisX, playerVisY, zoom, mapWidth, mapHeight) {
         const view = this.getViewSize(zoom);
+        const worldWidth = mapWidth * TILE_SIZE;
+        const worldHeight = mapHeight * TILE_SIZE;
 
         let camX = playerVisX + TILE_SIZE / 2 - view.width / 2;
         let camY = playerVisY + TILE_SIZE / 2 - view.height / 2;
 
-        // Clamp to map bounds
-        camX = Math.max(0, Math.min(camX, MAP_WIDTH * TILE_SIZE - view.width));
-        camY = Math.max(0, Math.min(camY, MAP_HEIGHT * TILE_SIZE - view.height));
+        // Clamp to map bounds or center if smaller than view
+        if (worldWidth <= view.width) {
+            camX = (worldWidth - view.width) / 2;
+        } else {
+            camX = Math.max(0, Math.min(camX, worldWidth - view.width));
+        }
+
+        if (worldHeight <= view.height) {
+            camY = (worldHeight - view.height) / 2;
+        } else {
+            camY = Math.max(0, Math.min(camY, worldHeight - view.height));
+        }
 
         return { x: camX, y: camY };
     }

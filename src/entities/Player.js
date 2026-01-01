@@ -42,6 +42,67 @@ export class Player {
         // Animation state
         this.attackTimer = 0;
         this.isAttacking = false;
+
+        // Active Buffs (from food consumption)
+        this.activeBuffs = playerData.activeBuffs || [];
+    }
+
+    /**
+     * Apply a buff from consuming food
+     * @param {object} buff - { type, duration, value }
+     */
+    applyBuff(buff) {
+        // Remove existing buff of same type
+        this.activeBuffs = this.activeBuffs.filter(b => b.type !== buff.type);
+        // Add new buff with remaining time
+        this.activeBuffs.push({
+            type: buff.type,
+            remainingTime: buff.duration,
+            value: buff.value
+        });
+    }
+
+    /**
+     * Update buff timers
+     * @param {number} dt - Delta time in seconds
+     */
+    updateBuffs(dt) {
+        this.activeBuffs = this.activeBuffs.filter(buff => {
+            buff.remainingTime -= dt;
+            return buff.remainingTime > 0;
+        });
+    }
+
+    /**
+     * Get buff value by type
+     */
+    getBuffValue(type) {
+        const buff = this.activeBuffs.find(b => b.type === type);
+        return buff ? buff.value : null;
+    }
+
+    /**
+     * Get effective movement speed (with buffs)
+     */
+    getEffectiveSpeed() {
+        const speedBuff = this.getBuffValue('speedBoost');
+        return speedBuff ? MOVEMENT_SPEED * speedBuff : MOVEMENT_SPEED;
+    }
+
+    /**
+     * Get effective max HP (with buffs)
+     */
+    getEffectiveMaxHp() {
+        const hpBuff = this.getBuffValue('maxHpBoost');
+        return hpBuff ? this.maxHp + hpBuff : this.maxHp;
+    }
+
+    /**
+     * Get energy cost multiplier (with buffs)
+     */
+    getEnergyCostMultiplier() {
+        const energyBuff = this.getBuffValue('energySaver');
+        return energyBuff ? energyBuff : 1.0;
     }
 
     /**
@@ -65,7 +126,7 @@ export class Player {
         const targetX = this.gridX * TILE_SIZE;
         const targetY = this.gridY * TILE_SIZE;
 
-        const frameSpeed = MOVEMENT_SPEED * dt;
+        const frameSpeed = this.getEffectiveSpeed() * dt;
         const dist = Math.hypot(targetX - this.visX, targetY - this.visY);
 
         if (dist <= frameSpeed) {
@@ -155,7 +216,8 @@ export class Player {
             maxHp: this.maxHp,
             questFlags: this.questFlags,
             attackTimer: this.attackTimer,
-            isAttacking: this.isAttacking
+            isAttacking: this.isAttacking,
+            activeBuffs: this.activeBuffs
         };
     }
 
