@@ -9,7 +9,8 @@ import {
     MAP_HEIGHT,
     SEEDS,
     TILES,
-    ITEMS
+    ITEMS,
+    GAME_VERSION
 } from './constants';
 import { getState, setState, GameState } from './state';
 import { generateMap, generateNorthMap, isSolid, setTile } from '../systems/MapGenerator';
@@ -35,6 +36,7 @@ import { BuildModal } from '../ui/BuildModal';
 import { CONSUMABLES } from '../systems/Recipes';
 import { ANIMAL_TYPES, Animal } from '../entities/Animals';
 import { BUILDING_TYPES } from '../systems/Buildings';
+import { WhatsNewModal } from '../ui/WhatsNewModal';
 
 export class Game {
     canvas: HTMLCanvasElement | null;
@@ -151,6 +153,22 @@ export class Game {
         // Start game loop
         this.isRunning = true;
         this.loop(0);
+
+        // Version Check for What's New Modal
+        this.checkVersion();
+    }
+
+    /**
+     * Check game version and show What's New modal if updated
+     */
+    checkVersion() {
+        const lastVersion = localStorage.getItem('last_seen_version');
+        if (lastVersion !== GAME_VERSION) {
+            const whatsNew = new WhatsNewModal(() => {
+                localStorage.setItem('last_seen_version', GAME_VERSION);
+            });
+            whatsNew.show();
+        }
     }
 
     /**
@@ -175,26 +193,40 @@ export class Game {
     }
 
     /**
-     * Perform attack with equipped weapon
+     * Perform attack with equipped weapon or selected sword
      */
     performAttack() {
-        if (!this.player || !this.player.equipment) {
-            this.showToast('No weapon equipped!', '#ff5252');
-            return;
+        if (!this.player) return;
+
+        let weapon = this.player.equipment.weapon;
+        let fromHotbar = false;
+
+        // Fallback to selected inventory item if no weapon equipped
+        if (!weapon && this.inventory) {
+            const selected = this.inventory.getSelectedItem();
+            if (selected && (ITEMS[selected.name.toUpperCase()]?.type === 'weapon' || selected.name.toLowerCase().includes('sword'))) {
+                weapon = {
+                    name: selected.name,
+                    type: 'weapon',
+                    attack: ITEMS[selected.name.toUpperCase()]?.attack || 1
+                };
+                fromHotbar = true;
+            }
         }
 
-        const weapon = this.player.equipment.weapon;
         if (!weapon) {
-            this.showToast('Equip a weapon first!', '#ff5252');
+            this.showToast('Equip a weapon or select a sword in your hand!', '#ff5252');
             return;
         }
 
         const state = getState();
         const damage = this.player.getAttack();
+        const finalDamage = fromHotbar ? (ITEMS[weapon.name.toUpperCase()]?.attack || 1) : damage;
         const attackRange = TILE_SIZE * 1.5; // Attack range in pixels
 
         // Show attack animation/effect
-        this.showToast(`⚔️ Attacked for ${damage} damage!`, '#ffd700');
+        this.player.startAttack(weapon.name);
+        this.showToast(`⚔️ Swung ${weapon.name}!`, '#ffd700');
 
         // In dungeons, damage nearby creeps
         if (state.currentMap.startsWith('dungeon_')) {
@@ -203,7 +235,7 @@ export class Game {
                 if (!this.player) return;
                 const dist = Math.hypot(creep.visX - this.player.visX, creep.visY - this.player.visY);
                 if (dist <= attackRange && creep.hp > 0) {
-                    creep.hp -= damage;
+                    creep.hp -= finalDamage;
                     hitCount++;
                     if (creep.hp <= 0) {
                         this.showToast(`💀 Killed ${creep.name}!`, '#81c784');
@@ -245,6 +277,10 @@ export class Game {
             if (!this.inventory.hasItem('AXE')) {
                 this.inventory.addItem('AXE', 1);
                 this.showToast('Received Starter Axe!', '#29b6f6');
+            }
+            if (!this.inventory.hasItem('WOODEN_SWORD')) {
+                this.inventory.addItem('WOODEN_SWORD', 1);
+                this.showToast('Received Practice Sword!', '#29b6f6');
             }
 
             // Re-create pet if exists in save
@@ -296,6 +332,9 @@ export class Game {
         if (this.player) this.uiManager.setupEquipment(this.player);
 
         this.inventory = new Inventory();
+        this.inventory.addItem('AXE', 1);
+        this.inventory.addItem('PICKAXE', 1);
+        this.inventory.addItem('WOODEN_SWORD', 1);
         this.inventory.addItem('turnip_seed', 5);
 
         this.timeSystem = new TimeSystem();
@@ -387,6 +426,15 @@ export class Game {
         // Profile Toggle
         this.inputManager.onProfile(() => {
             if (this.uiManager.equipmentModal) this.uiManager.equipmentModal.toggle();
+        });
+
+        // Slot Selection (Hotkeys)
+        this.inputManager.onSlotSelect((idx) => {
+            if (this.inventory) {
+                this.inventory.selected = idx;
+                this.syncInventory();
+                this.updateUI();
+            }
         });
 
         // Item Move (Drag & Drop)
@@ -676,7 +724,11 @@ export class Game {
                 if (this.inventory.addItem(id + '_seed', 1)) {
                     setState({ money: state.money - cost });
                     this.syncInventory();
+                    this.showToast(`Bought ${SEEDS[id].name} Seeds!`, '#81c784');
                     saveGame();
+                    this.updateUI(); // Immediate UI update
+                } else {
+                    this.showToast('Inventory Full!', '#ef5350');
                 }
             } else {
                 this.showToast('Need Cash!', '#ef5350');
@@ -791,7 +843,8 @@ export class Game {
         if (this.attackCooldown > 0) return;
 
         this.attackCooldown = 20; // ~0.3s at 60fps
-        this.player.startAttack(); // Trigger visual animation
+        const weapon = this.player.equipment.weapon || (this.inventory ? this.inventory.getSelectedItem() : null);
+        this.player.startAttack(weapon?.name || null); // Trigger visual animation
 
         // Visual effect
         const { gridX, gridY, facing } = this.player;

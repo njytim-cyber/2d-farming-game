@@ -46,6 +46,7 @@ export class Player {
     attackTimer: number;
     isAttacking: boolean;
     activeBuffs: Buff[];
+    attackItemName: string | null;
 
     constructor(playerData: any) {
         this.gridX = playerData.gridX;
@@ -84,6 +85,7 @@ export class Player {
 
         // Active Buffs (from food consumption)
         this.activeBuffs = (playerData.activeBuffs as Buff[]) || [];
+        this.attackItemName = null;
     }
 
     /**
@@ -154,6 +156,7 @@ export class Player {
             if (this.attackTimer <= 0) {
                 this.attackTimer = 0;
                 this.isAttacking = false;
+                this.attackItemName = null;
             }
         }
 
@@ -275,9 +278,10 @@ export class Player {
     /**
      * Trigger attack animation
      */
-    startAttack() {
+    startAttack(itemName: string | null = null) {
         this.isAttacking = true;
         this.attackTimer = 300; // 300ms animation
+        this.attackItemName = itemName;
     }
 
     /**
@@ -426,7 +430,10 @@ export class Player {
         }
 
         // === SWORD ANIMATION ===
-        if (this.equipment && this.equipment.weapon && this.attackTimer > 0) {
+        const hasWeapon = this.equipment && this.equipment.weapon;
+        const isSword = hasWeapon ? this.equipment.weapon!.name.toLowerCase().includes('sword') : (this.attackItemName?.toLowerCase().includes('sword'));
+
+        if (isSword && this.attackTimer > 0) {
             this.drawSwordSwing(ctx, drawX + 10, drawY + 15);
         }
 

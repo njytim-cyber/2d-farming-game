@@ -135,8 +135,8 @@ export function createInitialState(): GameState {
         crops: {},
         inventory: {
             slots: [
-                { name: 'PICKAXE', quantity: 1 },
-                { name: 'AXE', quantity: 1 },
+                { name: 'PICKAXE', count: 1 },
+                { name: 'AXE', count: 1 },
                 ...new Array(INVENTORY_SIZE - 2).fill(null)
             ],
             selected: 0

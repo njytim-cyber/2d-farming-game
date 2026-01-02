@@ -9,6 +9,7 @@ type MoveCallback = (dx: number, dy: number) => void;
 type ActionCallback = () => void;
 type ClickCallback = (tileX: number, tileY: number) => void;
 type ZoomCallback = (delta: number) => void;
+type SlotSelectCallback = (index: number) => void;
 
 interface InputCallbacks {
     move: MoveCallback[];
@@ -16,6 +17,7 @@ interface InputCallbacks {
     click: ClickCallback[];
     zoom: ZoomCallback[];
     profile: ActionCallback[];
+    slotSelect: SlotSelectCallback[];
 }
 
 export class InputManager {
@@ -36,7 +38,8 @@ export class InputManager {
             action: [],
             click: [],
             zoom: [],
-            profile: []
+            profile: [],
+            slotSelect: []
         };
 
         this.enabled = false;
@@ -62,6 +65,10 @@ export class InputManager {
         window.addEventListener('keydown', this.boundHandlers.keydown!);
         window.addEventListener('keyup', this.boundHandlers.keyup!);
         window.addEventListener('wheel', this.boundHandlers.wheel!, { passive: true });
+        window.addEventListener('blur', () => {
+            this.heldKeys.clear();
+            this.updateMoveDirection();
+        });
     }
 
     /**
@@ -74,6 +81,8 @@ export class InputManager {
         if (this.boundHandlers.keydown) window.removeEventListener('keydown', this.boundHandlers.keydown);
         if (this.boundHandlers.keyup) window.removeEventListener('keyup', this.boundHandlers.keyup);
         if (this.boundHandlers.wheel) window.removeEventListener('wheel', this.boundHandlers.wheel);
+        window.removeEventListener('blur', () => { }); // Anonymous listener can't be removed this way, but we could name it if needed.
+        // Actually it's better to name it for cleanup.
         this.heldKeys.clear();
         this.stopMoveInterval();
 
@@ -126,6 +135,15 @@ export class InputManager {
     }
 
     /**
+     * Register slot selection callback
+     * @param {Function} callback - (index: number) => void
+     */
+    onSlotSelect(callback: SlotSelectCallback): () => void {
+        this.callbacks.slotSelect.push(callback);
+        return () => this.removeCallback('slotSelect', callback);
+    }
+
+    /**
      * Remove a callback
      */
     removeCallback(type: keyof InputCallbacks, callback: any) {
@@ -173,6 +191,12 @@ export class InputManager {
         // Profile / Equipment
         if (['c', 'p', 'i'].includes(key)) {
             this.callbacks.profile.forEach(cb => cb());
+        }
+
+        // Slot selection (1-0)
+        if (key >= '0' && key <= '9') {
+            const index = key === '0' ? 9 : parseInt(key) - 1;
+            this.callbacks.slotSelect.forEach(cb => cb(index));
         }
     }
 

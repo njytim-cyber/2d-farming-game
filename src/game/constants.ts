@@ -57,7 +57,8 @@ export const MAP_WIDTH = 40;
 export const MAP_HEIGHT = 40;
 
 // === Storage ===
-export const SAVE_KEY = 'farming_sim_rpg_v11';
+export const SAVE_KEY = 'farming_sim_rpg_v12';
+export const GAME_VERSION = '1.2.1';
 export const AUTO_SAVE_INTERVAL = 10000; // 10 seconds
 
 // === Time ===
@@ -288,7 +289,7 @@ export const RESOURCE_TYPES: { [key: string]: ResourceConfig } = {
 };
 
 // === Inventory ===
-export const INVENTORY_SIZE = 20;
+export const INVENTORY_SIZE = 10;
 export const STARTING_MONEY = 100;
 export const STARTING_ENERGY = 300;
 export const MAX_ENERGY = 300;

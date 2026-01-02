@@ -183,8 +183,8 @@ export class Inventory {
         if (lower === 'stone') return '🪨';
         if (lower === 'ore') return '💎';
         if (lower.includes('sword')) return '🗡️';
-        if (lower.includes('axe')) return '🪓';
         if (lower.includes('pickaxe')) return '⛏️';
+        if (lower.includes('axe')) return '🪓';
         if (lower.includes('hoe')) return '锄'; // or something else
 
         if (lower.includes('turnip')) return '🥔';
