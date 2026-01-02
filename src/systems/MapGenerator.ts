@@ -12,23 +12,21 @@ export interface MapGenResult {
 }
 
 /**
- * Generate a new game map
- * @returns {MapGenResult} 2D array of tile types
+ * Generate the home overworld map (40x40)
  */
 export function generateMap(): MapGenResult {
     const map: number[][] = [];
+    const width = 40;
+    const height = 40;
 
     // Generate base terrain
-    for (let y = 0; y < MAP_HEIGHT; y++) {
+    for (let y = 0; y < height; y++) {
         const row: number[] = [];
-        for (let x = 0; x < MAP_WIDTH; x++) {
+        for (let x = 0; x < width; x++) {
             const rand = Math.random();
-
             if (rand < MAP_GEN.TREE_CHANCE) {
-                // 30% chance for Oak
                 row.push(Math.random() < 0.3 ? TILES.TREE_OAK : TILES.TREE);
             } else if (rand < MAP_GEN.STONE_CHANCE) {
-                // 20% chance for Ore, 10% for Boulder
                 const stoneRand = Math.random();
                 if (stoneRand < 0.2) row.push(TILES.STONE_ORE);
                 else if (stoneRand < 0.3) row.push(TILES.STONE_BOULDER);
@@ -40,64 +38,79 @@ export function generateMap(): MapGenResult {
         map.push(row);
     }
 
-    // Place buildings at center - 2x2 buildings
-    const cx = Math.floor(MAP_WIDTH / 2);
-    const cy = Math.floor(MAP_HEIGHT / 2);
+    // Place buildings
+    const cx = 20;
+    const cy = 20;
 
-    // House is 3x3 (top-left at cx-5, cy-4)
-    for (let y = cy - 4; y < cy - 1; y++) {
-        for (let x = cx - 5; x < cx - 2; x++) {
+    // House (3x3)
+    for (let y = 10; y < 13; y++) {
+        for (let x = 18; x < 21; x++) {
             map[y][x] = TILES.HOUSE;
         }
     }
 
-    // Shop is 3x3 (top-left at cx+2, cy-4)
-    for (let y = cy - 4; y < cy - 1; y++) {
-        for (let x = cx + 2; x < cx + 5; x++) {
+    // Shop (3x3)
+    for (let y = 10; y < 13; y++) {
+        for (let x = 25; x < 28; x++) {
             map[y][x] = TILES.SHOP;
         }
     }
 
-    // Place "Mysterious Old House" (8x4) far south
-    // Center X, near bottom Y
-    const ohX = cx - 4; // Centered (8 wide means -4 offset)
-    const ohY = MAP_HEIGHT - 8; // Near bottom
-
-    // Clear area for house
-    for (let y = ohY - 1; y < ohY + 5; y++) {
-        for (let x = ohX - 1; x < ohX + 9; x++) {
-            if (y >= 0 && y < MAP_HEIGHT && x >= 0 && x < MAP_WIDTH) {
-                map[y][x] = TILES.GRASS;
-                // clear trees/stones via return object eventually, 
-                // but direct map array manip doesn't clear entity lists unless we handle it.
-                // Since this is Generate, we are building the initial map, so checking before placing trees/stones is key.
-            }
-        }
-    }
-
-    // Draw House Tiles
+    // Old House (8x4) near bottom
+    const ohX = 16;
+    const ohY = 32;
     for (let y = ohY; y < ohY + 4; y++) {
         for (let x = ohX; x < ohX + 8; x++) {
             map[y][x] = TILES.OLD_HOUSE;
         }
     }
 
-    // Clear area around spawn (larger radius for bigger buildings)
-    const radius = MAP_GEN.CLEAR_RADIUS + 1;
+    // Clear area around spawn (center)
+    const radius = 3;
     for (let y = cy - radius; y <= cy + radius; y++) {
         for (let x = cx - radius; x <= cx + radius; x++) {
-            if (y >= 0 && y < MAP_HEIGHT && x >= 0 && x < MAP_WIDTH) {
-                if (map[y][x] === TILES.TREE || map[y][x] === TILES.STONE) {
-                    map[y][x] = TILES.GRASS;
-                }
+            if (map[y] && map[y][x] === TILES.TREE || map[y][x] === TILES.STONE) {
+                map[y][x] = TILES.GRASS;
             }
         }
     }
 
-    return {
-        map,
-        npcs: []
-    };
+    return { map, npcs: [] };
+}
+
+/**
+ * Generate the northern map (40x40) with a cave
+ */
+export function generateNorthMap(): MapGenResult {
+    const map: number[][] = [];
+    const width = 40;
+    const height = 40;
+
+    for (let y = 0; y < height; y++) {
+        const row: number[] = [];
+        for (let x = 0; x < width; x++) {
+            const rand = Math.random();
+            if (rand < MAP_GEN.TREE_CHANCE * 1.5) { // More trees in north
+                row.push(Math.random() < 0.3 ? TILES.TREE_OAK : TILES.TREE);
+            } else if (rand < MAP_GEN.STONE_CHANCE * 1.5) {
+                row.push(TILES.STONE);
+            } else {
+                row.push(TILES.GRASS);
+            }
+        }
+        map.push(row);
+    }
+
+    // Place Cave entrance at the top center
+    const caveX = 20;
+    const caveY = 5;
+    for (let y = caveY - 2; y <= caveY; y++) {
+        for (let x = caveX - 2; x <= caveX + 2; x++) {
+            map[y][x] = TILES.CAVE;
+        }
+    }
+
+    return { map, npcs: [] };
 }
 
 /**
@@ -110,7 +123,10 @@ export function isSolid(
     crops: Record<string, any> = {},
     SEEDS: Record<string, CropConfig> = {}
 ): boolean {
-    if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
+    const mapHeight = map.length;
+    const mapWidth = map[0]?.length || 0;
+
+    if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) {
         return true;
     }
 
@@ -119,7 +135,7 @@ export function isSolid(
     if (tile === TILES.TREE || tile === TILES.TREE_OAK ||
         tile === TILES.HOUSE || tile === TILES.SHOP ||
         tile === TILES.STONE || tile === TILES.STONE_ORE || tile === TILES.STONE_BOULDER ||
-        tile === TILES.OLD_HOUSE) {
+        tile === TILES.OLD_HOUSE || tile === TILES.COOP || tile === TILES.BARN) {
         return true;
     }
 

@@ -3,8 +3,9 @@
  * Handles shop buying and selling UI
  */
 
-import { SEEDS } from '../game/constants';
+import { SEEDS, SHOP_TABS } from '../game/constants';
 import { Inventory } from '../systems/Inventory';
+import { ANIMAL_TYPES } from '../entities/Animals';
 
 interface ShopCallbacks {
     onBuy: (seedType: string) => void;
@@ -17,11 +18,13 @@ export class ShopModal {
     uiManager: any; // Using any for now to avoid circular dependency pain until UIManager is TS
     gameCallbacks: ShopCallbacks;
     currentSeason: number;
+    activeTab: string;
 
     constructor(uiManager: any, gameCallbacks: ShopCallbacks) {
         this.uiManager = uiManager;
         this.gameCallbacks = gameCallbacks; // { onBuy, onSell, onClose, onReset }
         this.currentSeason = 0;
+        this.activeTab = 'seeds';
 
         this.setupEventListeners();
     }
@@ -70,9 +73,30 @@ export class ShopModal {
      * Render shop contents
      */
     render(inventory: Inventory) {
-        this.uiManager.renderShop(SEEDS, this.currentSeason, (seedType: string) => {
-            this.gameCallbacks.onBuy(seedType);
-            this.render(inventory); // Re-render sell list
+        // Render tabs
+        this.uiManager.renderShopTabs(SHOP_TABS, this.activeTab, (tabId: string) => {
+            this.activeTab = tabId;
+            this.render(inventory);
+        });
+
+        // Determine items based on tab
+        let items: any = {};
+        if (this.activeTab === 'seeds') {
+            items = SEEDS;
+        } else if (this.activeTab === 'animals') {
+            items = ANIMAL_TYPES;
+        }
+
+        this.uiManager.renderShop(items, this.activeTab, this.currentSeason, (id: string) => {
+            if (this.activeTab === 'seeds') {
+                this.gameCallbacks.onBuy(id);
+            } else if (this.activeTab === 'animals') {
+                // For now, buyAnimal could be a different callback or we handle it in onBuy
+                // The prompt says "split the shop items by tab"
+                // I'll assume onBuy can handle animal ids too or I'll need to update Game.ts
+                this.gameCallbacks.onBuy(id);
+            }
+            this.render(inventory);
         });
 
         this.uiManager.renderSellList(inventory, (slotIndex: number, value: number) => {

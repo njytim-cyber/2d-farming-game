@@ -61,7 +61,10 @@
                     <span style="font-size:12px; color:#aaa;">DAY</span>
                     <strong id="ui-day">1</strong>
                 </div>
-                <button id="btn-profile" class="stat-pill" style="padding: 5px 10px; cursor: pointer;">👤</button>
+                <button id="btn-inventory" class="stat-pill" style="padding: 5px 10px; cursor: pointer;"
+                    data-tooltip="Inventory">🎒</button>
+                <button id="btn-equip" class="stat-pill" style="padding: 5px 10px; cursor: pointer;"
+                    data-tooltip="Equipment">⚔️</button>
             </div>
         </div>
 
@@ -70,7 +73,10 @@
             <button class="zoom-btn">-</button>
         </div>
 
-        <button id="fab-action" class="fab-action">ACT</button>
+        <div class="fab-container">
+            <button id="fab-action" class="fab-action">ACT</button>
+            <button id="fab-build" class="fab-action" style="background: #8d6e63;">BUILD</button>
+        </div>
 
         <div class="inventory-container">
             <div id="inventory-scroll" class="inventory-scroll"></div>
@@ -97,16 +103,22 @@
 
     <!-- Shop Modal -->
     <div id="shop-modal" class="modal-overlay">
-        <div class="modal-panel">
-            <button class="btn btn--back">←</button>
-            <button class="btn btn--close">×</button>
-            <div class="modal-title">Mega Seed Market</div>
-            <div class="modal-scroll">
-                <div class="shop-list" id="shop-items"></div>
-                <div class="sell-section">
-                    <div class="sell-section__title">SELL ITEMS (Tap to sell)</div>
-                    <div id="sell-list" class="sell-list"></div>
-                </div>
+        <div class="modal-panel" style="max-width: 700px; width: 90%;">
+            <div class="modal-header">
+                <div class="modal-title">🌱 Mega Seed Market</div>
+                <button class="btn btn--close">✕</button>
+            </div>
+            <div id="shop-tabs" class="shop-tabs"></div>
+            <div id="shop-items" class="shop-items"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 250px; overflow-y: auto; margin-bottom: 15px;">
+            </div>
+            <div class="modal-title" style="font-size: 16px; margin: 10px 0;">Your Items to Sell</div>
+            <div id="sell-list" class="sell-list"
+                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; max-height: 150px; overflow-y: auto;">
+            </div>
+            <div style="margin-top: 15px; display: flex; justify-content: space-between;">
+                <button class="btn btn--back">← Back</button>
+                <button class="btn btn--reset" style="background: #c62828;">Reset Save</button>
             </div>
         </div>
     </div>

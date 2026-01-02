@@ -134,7 +134,11 @@ export function createInitialState(): GameState {
         destination: null,
         crops: {},
         inventory: {
-            slots: new Array(INVENTORY_SIZE).fill(null),
+            slots: [
+                { name: 'PICKAXE', quantity: 1 },
+                { name: 'AXE', quantity: 1 },
+                ...new Array(INVENTORY_SIZE - 2).fill(null)
+            ],
             selected: 0
         },
         money: STARTING_MONEY,

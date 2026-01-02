@@ -8,11 +8,13 @@ import { Player } from '../entities/Player';
 
 export class EquipmentModal {
     player: Player;
+    uiManager: any;
     modal: HTMLElement | null;
     isVisible: boolean;
 
-    constructor(player: Player) {
+    constructor(player: Player, uiManager: any) {
         this.player = player;
+        this.uiManager = uiManager;
         this.modal = null;
         this.isVisible = false;
     }
@@ -67,11 +69,28 @@ export class EquipmentModal {
         const closeBtn = content.querySelector('.btn--close') as HTMLElement;
         if (closeBtn) closeBtn.onclick = () => this.hide();
 
-        // Slot interactions (placeholder for now)
+        // Slot interactions
         content.querySelectorAll('.equipment-slot').forEach(slot => {
-            (slot as HTMLElement).onclick = () => {
-                // Future: Open selection modal
-                console.log('Clicked slot:', (slot as HTMLElement).dataset.slot);
+            const slotEl = slot as HTMLElement;
+            slotEl.onclick = () => {
+                console.log('Clicked slot:', slotEl.dataset.slot);
+            };
+
+            // --- Drag and Drop ---
+            slotEl.ondragover = (e) => {
+                e.preventDefault();
+                slotEl.classList.add('slot--drag-over');
+            };
+            slotEl.ondragleave = () => slotEl.classList.remove('slot--drag-over');
+            slotEl.ondrop = (e) => {
+                e.preventDefault();
+                slotEl.classList.remove('slot--drag-over');
+                const dataStr = e.dataTransfer?.getData('application/json');
+                if (!dataStr) return;
+                const from = JSON.parse(dataStr);
+                const toIndex = slotEl.dataset.slot;
+                const to = { type: 'equipment', index: toIndex };
+                if (this.uiManager.onItemMoveCallback) this.uiManager.onItemMoveCallback(from, to);
             };
         });
     }
@@ -91,9 +110,16 @@ export class EquipmentModal {
             if (item) {
                 slot.innerHTML = Inventory.getIcon(item.name); // Using name as key for now based on JS
                 slot.classList.add('has-item');
+                slot.draggable = true;
+                slot.ondragstart = (e) => {
+                    slot.classList.add('slot--dragging');
+                    e.dataTransfer?.setData('application/json', JSON.stringify({ type: 'equipment', index: slotType }));
+                };
+                slot.ondragend = () => slot.classList.remove('slot--dragging');
             } else {
                 // Default placeholders handled by CSS/Initial HTML
                 slot.classList.remove('has-item');
+                slot.draggable = false;
                 if (slotType === 'head') slot.innerHTML = '🛡️';
                 if (slotType === 'weapon') slot.innerHTML = '⚔️';
                 if (slotType === 'body') slot.innerHTML = '👕';

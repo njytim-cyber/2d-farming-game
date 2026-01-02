@@ -8,7 +8,6 @@ import { EquipmentModal } from './EquipmentModal';
 import { DialogueModal } from './DialogueModal';
 import { SEASONS, SEASON_ICONS } from '../game/constants';
 import { Player } from '../entities/Player';
-import { CropConfig } from '../game/constants';
 
 interface UIElements {
     inventoryScroll: HTMLElement | null;
@@ -29,6 +28,7 @@ interface UIElements {
     startPanelContent: HTMLElement | null;
     healthText: HTMLElement | null;
     healthBar: HTMLElement | null;
+    shopTabs: HTMLElement | null;
 }
 
 interface GameStats {
@@ -47,6 +47,8 @@ export class UIManager {
     elements: UIElements;
     onSlotSelectCallback: ((index: number) => void) | null;
     onEquipCallback: ((index: number) => void) | null;
+    onItemMoveCallback: ((from: any, to: any) => void) | null;
+    onUnequipCallback: ((slot: string) => void) | null;
     equipmentModal: EquipmentModal | null;
     dialogueModal: DialogueModal;
     tooltip: HTMLElement | null;
@@ -76,11 +78,14 @@ export class UIManager {
 
             // Health Stats
             healthText: document.getElementById('ui-health-text'),
-            healthBar: document.getElementById('ui-health-bar')
+            healthBar: document.getElementById('ui-health-bar'),
+            shopTabs: document.getElementById('shop-tabs')
         };
 
         this.onSlotSelectCallback = null;
         this.onEquipCallback = null;
+        this.onItemMoveCallback = null;
+        this.onUnequipCallback = null;
         this.equipmentModal = null;
         this.dialogueModal = new DialogueModal();
         this.tooltip = null;
@@ -90,20 +95,30 @@ export class UIManager {
         // Setup Tooltip
         this.setupTooltips();
 
-        // Setup Profile Button
-        const profileBtn = document.getElementById('btn-profile');
-        if (profileBtn) {
-            profileBtn.onclick = () => {
+        // Setup Inventory Button
+        const invBtn = document.getElementById('btn-inventory');
+        if (invBtn) {
+            invBtn.onclick = () => {
                 if (this.equipmentModal) this.equipmentModal.toggle();
             };
         }
+
+        // Setup Equip Button
+        const equipBtn = document.getElementById('btn-equip');
+        if (equipBtn) {
+            equipBtn.onclick = () => {
+                if (this.equipmentModal) this.equipmentModal.toggle();
+            };
+        }
+
+        // Attack button is handled in Game.ts
     }
 
     /**
      * Setup Equipment Modal
      */
     setupEquipment(player: Player) {
-        this.equipmentModal = new EquipmentModal(player);
+        this.equipmentModal = new EquipmentModal(player, this);
         const modalEl = document.getElementById('equipment-modal');
         if (modalEl) {
             this.equipmentModal.setupUI(modalEl);
@@ -179,6 +194,20 @@ export class UIManager {
     }
 
     /**
+     * Set item move callback (for drag & drop)
+     */
+    onItemMove(callback: (from: any, to: any) => void) {
+        this.onItemMoveCallback = callback;
+    }
+
+    /**
+     * Set unequip callback
+     */
+    onUnequip(callback: (slot: string) => void) {
+        this.onUnequipCallback = callback;
+    }
+
+    /**
      * Update inventory display (Optimized)
      */
     renderInventory(inventory: Inventory) {
@@ -217,6 +246,30 @@ export class UIManager {
             }
 
             container.appendChild(slot);
+
+            // --- Drag and Drop ---
+            slot.draggable = true;
+            slot.ondragstart = (e) => {
+                if (item) {
+                    slot.classList.add('slot--dragging');
+                    e.dataTransfer?.setData('application/json', JSON.stringify({ type: 'inventory', index: i }));
+                }
+            };
+            slot.ondragend = () => slot.classList.remove('slot--dragging');
+            slot.ondragover = (e) => {
+                e.preventDefault();
+                slot.classList.add('slot--drag-over');
+            };
+            slot.ondragleave = () => slot.classList.remove('slot--drag-over');
+            slot.ondrop = (e) => {
+                e.preventDefault();
+                slot.classList.remove('slot--drag-over');
+                const dataStr = e.dataTransfer?.getData('application/json');
+                if (!dataStr) return;
+                const from = JSON.parse(dataStr);
+                const to = { type: 'inventory', index: i };
+                if (this.onItemMoveCallback) this.onItemMoveCallback(from, to);
+            };
         });
     }
 
@@ -321,39 +374,77 @@ export class UIManager {
     }
 
     /**
+     * Render shop tabs
+     */
+    renderShopTabs(tabs: any[], activeTab: string, onTabChange: (tabId: string) => void) {
+        if (!this.elements.shopTabs) return;
+
+        let html = '';
+        tabs.forEach(tab => {
+            html += `
+                <div class="shop-tab ${tab.id === activeTab ? 'shop-tab--active' : ''}" data-tab="${tab.id}">
+                    ${tab.icon} ${tab.name}
+                </div>
+            `;
+        });
+
+        this.elements.shopTabs.innerHTML = html;
+
+        this.elements.shopTabs.querySelectorAll('.shop-tab').forEach(tab => {
+            (tab as HTMLElement).onclick = () => onTabChange((tab as HTMLElement).dataset.tab!);
+        });
+    }
+
+    /**
      * Render shop items
      */
-    renderShop(seeds: Record<string, CropConfig>, currentSeason: number, onBuy: (seed: string) => void) {
+    renderShop(items: any, activeTab: string, currentSeason: number, onBuy: (id: string) => void) {
         if (!this.elements.shopItems) return;
 
         let html = '';
-        for (const [key, val] of Object.entries(seeds)) {
-            // Determine if crop is in season
-            // val.seasons is optional in CropConfig? In constants.ts it is seasons: number[].
-            const isInSeason = val.seasons ? val.seasons.includes(currentSeason) : true;
-            const seasonIcons = val.seasons
-                ? val.seasons.map((s: number) => SEASON_ICONS[s]).join('')
-                : '🌱';  // All season indicator
 
-            const cardClass = isInSeason ? 'shop-card shop-card--in-season' : 'shop-card shop-card--out-season';
+        if (activeTab === 'seeds') {
+            for (const [key, val] of Object.entries(items)) {
+                const isInSeason = (val as any).seasons ? (val as any).seasons.includes(currentSeason) : true;
+                const seasonIcons = (val as any).seasons
+                    ? (val as any).seasons.map((s: number) => SEASON_ICONS[s]).join('')
+                    : '🌱';
 
-            html += `
-        <div class="${cardClass}">
-          <div class="shop-card__icon">${Inventory.getIcon(key)}</div>
-          <div class="shop-card__seasons">${seasonIcons}</div>
-          <h4 class="shop-card__name">${val.name}</h4>
-          <div class="shop-card__meta">Grow: ${(1 / val.grow).toFixed(1)}s</div>
-          <div class="shop-card__price">$${val.cost}</div>
-          <button class="btn btn--buy" data-seed="${key}">${isInSeason ? 'BUY' : 'OFF SEASON'}</button>
-        </div>
-      `;
+                const cardClass = isInSeason ? 'shop-card shop-card--in-season' : 'shop-card shop-card--out-season';
+
+                html += `
+                    <div class="${cardClass}">
+                        <div class="shop-card__icon">${Inventory.getIcon(key)}</div>
+                        <div class="shop-card__seasons">${seasonIcons}</div>
+                        <h4 class="shop-card__name">${(val as any).name}</h4>
+                        <div class="shop-card__meta">Grow: ${(1 / (val as any).grow).toFixed(1)}s</div>
+                        <div class="shop-card__price">$${(val as any).cost}</div>
+                        <button class="btn btn--buy" data-id="${key}">${isInSeason ? 'BUY' : 'OFF SEASON'}</button>
+                    </div>
+                `;
+            }
+        } else if (activeTab === 'animals') {
+            for (const [key, val] of Object.entries(items)) {
+                html += `
+                    <div class="shop-card shop-card--in-season">
+                        <div class="shop-card__icon">${(val as any).name === 'Chicken' ? '🐔' : ((val as any).name === 'Cow' ? '🐄' : '🐷')}</div>
+                        <div class="shop-card__seasons">🐾</div>
+                        <h4 class="shop-card__name">${(val as any).name}</h4>
+                        <div class="shop-card__meta">Product: ${(val as any).product || 'Pet'}</div>
+                        <div class="shop-card__price">$${(val as any).cost}</div>
+                        <button class="btn btn--buy" data-id="${key}">BUY</button>
+                    </div>
+                `;
+            }
+        } else {
+            html = '<div style="grid-column: 1/-1; padding: 20px; color: #666;">No items in this category yet.</div>';
         }
 
         this.elements.shopItems.innerHTML = html;
 
         // Add click handlers
         this.elements.shopItems.querySelectorAll('.btn--buy').forEach(btn => {
-            (btn as HTMLElement).onclick = () => onBuy((btn as HTMLElement).dataset.seed!);
+            (btn as HTMLElement).onclick = () => onBuy((btn as HTMLElement).dataset.id!);
         });
     }
 

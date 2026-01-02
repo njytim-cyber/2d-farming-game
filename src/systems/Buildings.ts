@@ -36,20 +36,20 @@ interface Building {
 export const BUILDING_TYPES: Record<string, BuildingType> = {
     BARN: {
         name: 'Barn',
-        size: [4, 4],
-        cost: { wood: 100, stone: 50 },
+        size: [8, 4],
+        cost: { wood: 1, stone: 1 },
         capacity: 4,        // Max animals
         animalTypes: ['cow'],
-        tileId: 20,
+        tileId: 12,         // TILES.BARN
         color: '#8d6e63'
     },
     COOP: {
         name: 'Coop',
-        size: [3, 3],
-        cost: { wood: 50, stone: 25 },
+        size: [6, 4],
+        cost: { money: 1000, wood: 20, stone: 10 },
         capacity: 8,
         animalTypes: ['chicken'],
-        tileId: 21,
+        tileId: 11,         // TILES.COOP
         color: '#ffcc80'
     },
     SILO: {

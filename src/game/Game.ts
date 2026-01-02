@@ -9,21 +9,20 @@ import {
     MAP_HEIGHT,
     SEEDS,
     TILES,
-    INTERIOR_TILES,
-    NPC_IDS,
-    RESOURCE_TYPES,
-    ENERGY_COST,
     ITEMS
 } from './constants';
 import { getState, setState, GameState } from './state';
-import { generateMap, isSolid, setTile } from '../systems/MapGenerator';
-import { generateHouseInterior, generateShopInterior, generateOldHouseInterior, isInteriorSolid, getInteriorSpawn } from '../systems/InteriorMaps';
+import { generateMap, generateNorthMap, isSolid, setTile } from '../systems/MapGenerator';
+import { isInteriorSolid } from '../systems/InteriorMaps';
 import { saveGame, loadGame, hasSave, startAutoSave, onSave, resetGame } from '../systems/SaveManager';
 import { Inventory } from '../systems/Inventory';
 import { TimeSystem } from '../systems/TimeSystem';
 import { Pet } from '../entities/Pet';
 import { PetNameModal } from '../ui/PetNameModal';
 import { ParticleSystem } from '../systems/ParticleSystem';
+import { InteractionSystem } from '../systems/InteractionSystem';
+import { NavigationSystem } from '../systems/NavigationSystem';
+import { RenderingOrchestrator } from '../rendering/RenderingOrchestrator';
 import { Player } from '../entities/Player';
 import Renderer from '../rendering/Renderer';
 import TileRenderer from '../rendering/TileRenderer';
@@ -32,7 +31,10 @@ import { UIManager } from '../ui/UIManager';
 import { CreatorModal } from '../ui/CreatorModal';
 import { ShopModal } from '../ui/ShopModal';
 import CookingModal from '../ui/CookingModal';
+import { BuildModal } from '../ui/BuildModal';
 import { CONSUMABLES } from '../systems/Recipes';
+import { ANIMAL_TYPES, Animal } from '../entities/Animals';
+import { BUILDING_TYPES } from '../systems/Buildings';
 
 export class Game {
     canvas: HTMLCanvasElement | null;
@@ -41,6 +43,9 @@ export class Game {
     inputManager: InputManager;
     uiManager: UIManager;
     particleSystem: ParticleSystem;
+    interactionSystem: InteractionSystem; // New System
+    navigationSystem: NavigationSystem;
+    renderingOrchestrator: RenderingOrchestrator;
 
     player: Player | null;
     inventory: Inventory | null;
@@ -49,12 +54,14 @@ export class Game {
     creatorModal: CreatorModal | null;
     shopModal: ShopModal | null;
     cookingModal: CookingModal | null;
+    buildModal: BuildModal | null;
 
     isRunning: boolean;
     bufferedMove: { dx: number; dy: number } | null;
     attackCooldown: number;
     petIntroTriggered: boolean;
     introActive: boolean;
+    creeps: any[]; // Active dungeon creeps
 
     constructor() {
         this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
@@ -63,6 +70,9 @@ export class Game {
         this.inputManager = new InputManager();
         this.uiManager = new UIManager();
         this.particleSystem = new ParticleSystem();
+        this.interactionSystem = new InteractionSystem(this);
+        this.navigationSystem = new NavigationSystem(this);
+        this.renderingOrchestrator = new RenderingOrchestrator(this);
 
         this.player = null;
         this.inventory = null;
@@ -71,12 +81,14 @@ export class Game {
         this.creatorModal = null;
         this.shopModal = null;
         this.cookingModal = null;
+        this.buildModal = null;
 
         this.isRunning = false;
         this.bufferedMove = null;
         this.attackCooldown = 0;
         this.petIntroTriggered = false;
         this.introActive = false;
+        this.creeps = [];
     }
 
     /**
@@ -115,6 +127,14 @@ export class Game {
             onClose: () => setState({ screen: 'GAME' })
         });
 
+        // Setup build modal
+        if (this.canvas) {
+            this.buildModal = new BuildModal(this.uiManager, {
+                onClose: () => setState({ screen: 'GAME' }),
+                showToast: (msg, color) => this.showToast(msg, color)
+            }, this.canvas);
+        }
+
         // Initialize with state
         const state = getState();
         if (state.player) this.player = new Player(state.player);
@@ -145,6 +165,58 @@ export class Game {
         }
         if (leaveBtn) {
             leaveBtn.onclick = () => this.closeHouseModal();
+        }
+
+        // Attack button
+        const attackBtn = document.getElementById('btn-attack');
+        if (attackBtn) {
+            attackBtn.onclick = () => this.performAttack();
+        }
+    }
+
+    /**
+     * Perform attack with equipped weapon
+     */
+    performAttack() {
+        if (!this.player || !this.player.equipment) {
+            this.showToast('No weapon equipped!', '#ff5252');
+            return;
+        }
+
+        const weapon = this.player.equipment.weapon;
+        if (!weapon) {
+            this.showToast('Equip a weapon first!', '#ff5252');
+            return;
+        }
+
+        const state = getState();
+        const damage = this.player.getAttack();
+        const attackRange = TILE_SIZE * 1.5; // Attack range in pixels
+
+        // Show attack animation/effect
+        this.showToast(`⚔️ Attacked for ${damage} damage!`, '#ffd700');
+
+        // In dungeons, damage nearby creeps
+        if (state.currentMap.startsWith('dungeon_')) {
+            let hitCount = 0;
+            this.creeps.forEach((creep: any) => {
+                if (!this.player) return;
+                const dist = Math.hypot(creep.visX - this.player.visX, creep.visY - this.player.visY);
+                if (dist <= attackRange && creep.hp > 0) {
+                    creep.hp -= damage;
+                    hitCount++;
+                    if (creep.hp <= 0) {
+                        this.showToast(`💀 Killed ${creep.name}!`, '#81c784');
+                    }
+                }
+            });
+
+            // Remove dead creeps
+            this.creeps = this.creeps.filter((c: any) => c.hp > 0);
+
+            if (hitCount > 0) {
+                this.showToast(`Hit ${hitCount} enem${hitCount > 1 ? 'ies' : 'y'}!`, '#ffd700');
+            }
         }
     }
 
@@ -200,11 +272,12 @@ export class Game {
      * Start a new game
      */
     startNewGame() {
-        const { map, npcs } = generateMap();
+        const { map: homeMap, npcs: homeNpcs } = generateMap();
+        const { map: northMap, npcs: northNpcs } = generateNorthMap();
 
         if (this.player) {
-            this.player.gridX = Math.floor(MAP_WIDTH / 2);
-            this.player.gridY = Math.floor(MAP_HEIGHT / 2);
+            this.player.gridX = 20;
+            this.player.gridY = 20;
             this.player.visX = this.player.gridX * TILE_SIZE;
             this.player.visY = this.player.gridY * TILE_SIZE;
             this.player.facing = { x: 0, y: 1 };
@@ -217,8 +290,8 @@ export class Game {
 
         this.timeSystem = new TimeSystem();
 
-        // Spawn Pet for intro (Right of player, definitely visible)
-        this.pet = new Pet(32, 30);
+        // Spawn Pet for intro
+        this.pet = new Pet(22, 20);
         this.petIntroTriggered = false;
 
         // Trigger pet intro after a short delay
@@ -229,8 +302,12 @@ export class Game {
         if (this.timeSystem && this.player && this.inventory) {
             setState({
                 screen: 'GAME',
-                map,
-                npcs: npcs || [],
+                currentMap: 'overworld',
+                map: homeMap,
+                npcs: homeNpcs || [],
+                interiors: {
+                    'overworld_north': { map: northMap, npcs: northNpcs || [] }
+                },
                 player: this.player.serialize(),
                 inventory: this.inventory.serialize(),
                 crops: {},
@@ -267,7 +344,7 @@ export class Game {
         this.inputManager.enable();
 
         this.inputManager.onMove((dx, dy) => {
-            this.attemptMove(dx, dy);
+            this.navigationSystem.attemptMove(dx, dy);
         });
 
         this.inputManager.onAction(() => {
@@ -297,6 +374,16 @@ export class Game {
             setState({ zoom });
         });
 
+        // Profile Toggle
+        this.inputManager.onProfile(() => {
+            if (this.uiManager.equipmentModal) this.uiManager.equipmentModal.toggle();
+        });
+
+        // Item Move (Drag & Drop)
+        this.uiManager.onItemMove((from, to) => {
+            this.handleItemMove(from, to);
+        });
+
         // Setup canvas input
         if (this.canvas) {
             this.inputManager.setupCanvasInput(this.canvas, (screenX, screenY) => {
@@ -316,43 +403,32 @@ export class Game {
         if (zoomBtns.length >= 2) {
             this.inputManager.setupZoomButtons(zoomBtns[0] as HTMLElement, zoomBtns[1] as HTMLElement);
         }
-    }
 
-    /**
-     * Attempt to move player
-     * Handles input buffering
-     */
-    attemptMove(dx: number, dy: number) {
-        if (!this.player) return;
-        const state = getState();
-        if (state.screen !== 'GAME') return;
-
-        // Buffer input if already moving
-        if (this.player.isMoving) {
-            this.bufferedMove = { dx, dy };
-            return;
-        }
-
-        // Clear any click-to-move destination when using keyboard
-        setState({ destination: null });
-
-        this.player.facing = { x: dx, y: dy };
-        const newX = this.player.gridX + dx;
-        const newY = this.player.gridY + dy;
-
-        // Get current map and check bounds/solidity
-        const currentMap = this.getCurrentMap(state);
-        const mapHeight = currentMap.length;
-        const mapWidth = currentMap[0]?.length || 0;
-
-        if (newX >= 0 && newX < mapWidth && newY >= 0 && newY < mapHeight) {
-            if (!this.isTileSolid(state, newX, newY)) {
-                this.player.gridX = newX;
-                this.player.gridY = newY;
-                this.player.isMoving = true;
+        // B key to open build menu
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'b' && getState().screen === 'GAME' && getState().currentMap === 'overworld') {
+                if (this.buildModal && this.inventory) {
+                    this.buildModal.show(this.inventory);
+                }
             }
+        });
+
+        // BUILD button click handler
+        const buildBtn = document.getElementById('fab-build');
+        if (buildBtn) {
+            buildBtn.onclick = () => {
+                const state = getState();
+                if (state.screen === 'GAME' && state.currentMap === 'overworld') {
+                    if (this.buildModal && this.inventory) {
+                        this.buildModal.show(this.inventory);
+                    }
+                } else {
+                    this.showToast('Can only build in overworld!', '#ffa726');
+                }
+            };
         }
     }
+
 
     /**
      * Main game loop
@@ -388,26 +464,7 @@ export class Game {
         this.player.updateBuffs(dt);
 
         // Check input if not moving (or just finished moving)
-        if (!this.player.isMoving) {
-            // Check for step-on triggers (e.g. exiting house)
-            if (state.currentMap !== 'overworld') {
-                const currentMap = this.getCurrentMap(state);
-                const tile = currentMap[this.player.gridY][this.player.gridX];
-                if (tile === INTERIOR_TILES.DOOR) {
-                    this.exitHouse();
-                    return;
-                }
-            }
-
-            // Poll for continuous smooth movement
-            const { x, y } = this.inputManager.moveDirection;
-            if (x !== 0 || y !== 0) {
-                this.attemptMove(x, y);
-            }
-            else if (state.destination) {
-                this.processPathfinding(state);
-            }
-        }
+        this.navigationSystem.update();
 
         // Update time
         const newDayStarted = this.timeSystem.update();
@@ -473,52 +530,43 @@ export class Game {
                 }
             }
         }
-    }
 
-    /**
-     * Process pathfinding to destination
-     */
-    processPathfinding(state: GameState) {
-        if (!this.player || !state.destination) return;
-        const dest = state.destination;
-        const dx = dest.x - this.player.gridX;
-        const dy = dest.y - this.player.gridY;
+        // Update Creeps in dungeons
+        if (this.player && state.currentMap.startsWith('dungeon_') && this.creeps.length > 0) {
+            const currentMap = this.getCurrentMap(state);
+            const player = this.player; // Capture for closure
+            this.creeps.forEach((creep: any) => {
+                creep.update(dt, { gridX: player.gridX, gridY: player.gridY }, currentMap);
 
-        if (dx === 0 && dy === 0) {
-            setState({ destination: null });
-            return;
+                // Check collision with player (deal damage)
+                const dist = Math.hypot(creep.visX - player.visX, creep.visY - player.visY);
+                if (dist < TILE_SIZE * 0.8) {
+                    // Player takes damage from creep
+                    if (this.attackCooldown <= 0 && creep.hp > 0) {
+                        player.hp -= creep.attack;
+                        this.attackCooldown = 1.0; // 1 second invincibility
+                        this.showToast(`-${creep.attack} HP from ${creep.name}!`, '#ff5252');
+
+                        if (player.hp <= 0) {
+                            player.hp = player.maxHp;
+                            this.transitionToMap('overworld', 20, 20);
+                            this.creeps = [];
+                            this.showToast('You were defeated! Returned home.', '#ff5252');
+                        }
+                    }
+                }
+            });
+
+            // Remove dead creeps
+            this.creeps = this.creeps.filter((c: any) => c.hp > 0);
         }
 
-        const sx = Math.sign(dx);
-        const sy = Math.sign(dy);
-
-        const tryMove = (ax: number, ay: number) => {
-            if (!this.player) return false;
-            if (!isSolid(state.map, this.player.gridX + ax, this.player.gridY + ay, state.crops, SEEDS)) {
-                this.player.gridX += ax;
-                this.player.gridY += ay;
-                this.player.facing = { x: ax || 0, y: ay || 0 };
-                this.player.isMoving = true;
-                return true;
-            }
-            return false;
-        };
-
-        let moved = false;
-        if (Math.abs(dx) >= Math.abs(dy)) {
-            if (sx !== 0) moved = tryMove(sx, 0) || (sy !== 0 && tryMove(0, sy));
-        } else {
-            if (sy !== 0) moved = tryMove(0, sy) || (sx !== 0 && tryMove(sx, 0));
-        }
-
-        if (!moved) {
-            this.player.facing = {
-                x: Math.abs(dx) >= Math.abs(dy) ? sx : 0,
-                y: Math.abs(dy) > Math.abs(dx) ? sy : 0
-            };
-            setState({ destination: null });
+        // Reduce attack cooldown
+        if (this.attackCooldown > 0) {
+            this.attackCooldown -= dt;
         }
     }
+
 
     interactWithSelected(idx: number) {
         // Handle slot selection (just highlight/equip logic separation)
@@ -540,297 +588,14 @@ export class Game {
         const tx = gridX + facing.x;
         const ty = gridY + facing.y;
 
-        const currentMap = this.getCurrentMap(state);
-        const mapHeight = currentMap.length;
-        const mapWidth = currentMap[0]?.length || 0;
-
-        if (tx < 0 || tx >= mapWidth || ty < 0 || ty >= mapHeight) return;
-
-        const tile = currentMap[ty][tx];
-        const key = `${tx},${ty}`;
-        const selectedItem = this.inventory.getSelectedItem();
-
-        // Check for NPC interaction on the current map
-        let currentNpcs: any[] = [];
-        if (state.currentMap === 'overworld') {
-            currentNpcs = state.npcs || [];
-        } else {
-            const interiorKey = state.currentMap.replace('Interior', '');
-            const interior = state.interiors[interiorKey];
-            currentNpcs = interior?.npcs || [];
-        }
-
-        if (currentNpcs.length > 0) {
-            const npc = currentNpcs.find(n => n.x === tx && n.y === ty);
-            if (npc) {
-                this.interactWithNPC(npc);
-                return;
-            }
-        }
-
-        setState({ destination: null });
-
-        // Interior door - exit to overworld
-        if (state.currentMap !== 'overworld' && tile === INTERIOR_TILES.DOOR) {
-            this.exitHouse(); // exitHouse now handles returning to previous pos, works for Shop too
-            return;
-        }
-
-        // Shop Counter - Open Shop
-        if (state.currentMap.includes('shop') && tile === INTERIOR_TILES.COUNTER) {
-            setState({ screen: 'SHOP' });
-            if (this.shopModal) this.shopModal.show(this.inventory, this.timeSystem.season);
-            return;
-        }
-
-        // Interior bed - sleep option
-        if (state.currentMap !== 'overworld' && tile === INTERIOR_TILES.BED) {
-            this.uiManager.setHouseVisible(true);
-            return;
-        }
-
-        // Interior stove - cooking
-        if (state.currentMap !== 'overworld' && tile === INTERIOR_TILES.STOVE) {
-            setState({ screen: 'COOKING' });
-            if (this.cookingModal) this.cookingModal.show(this.inventory);
-            return;
-        }
-
-        // Only allow outdoor interactions in overworld
-        if (state.currentMap !== 'overworld' && !state.currentMap.includes('shop')) {
-            return;
-        }
-
-        // Shop (Overworld)
-        if (tile === TILES.SHOP) {
-            this.enterShop();
-            return;
-        }
-
-        // House (Overworld)
-        if (tile === TILES.HOUSE) {
-            this.enterHouse();
-            return;
-        }
-
-        // Old House (Abandoned)
-        if (tile === TILES.OLD_HOUSE) {
-            this.enterBuilding('old_house');
-            return;
-        }
-
-        // Stone/Ore/Boulder
-        if (tile === TILES.STONE) {
-            this.hitResource(tx, ty, 'STONE');
-            return;
-        }
-        if (tile === TILES.STONE_ORE) {
-            this.hitResource(tx, ty, 'ORE');
-            return;
-        }
-        if (tile === TILES.STONE_BOULDER) {
-            this.hitResource(tx, ty, 'BOULDER');
-            return;
-        }
-
-        // Tree/Oak
-        if (tile === TILES.TREE) {
-            this.hitResource(tx, ty, 'TREE');
-            return;
-        }
-        if (tile === TILES.TREE_OAK) {
-            this.hitResource(tx, ty, 'OAK');
-            return;
-        }
-
-        // Clear withered debris back to soil
-        if (tile === TILES.WITHERED) {
-            if (this.timeSystem.consumeEnergy(2)) {  // Low energy cost to clear
-                setTile(state.map, tx, ty, TILES.SOIL);
-                this.particleSystem.createBurst(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE + TILE_SIZE / 2, '#8b7355');
-                this.showToast('Cleared debris');
-            } else {
-                this.showToast('Too Exhausted!', '#ef5350');
-            }
-            return;
-        }
-
-        // Till grass to soil
-        if (tile === TILES.GRASS) {
-            if (this.timeSystem.consumeEnergy(ENERGY_COST.TILL_SOIL)) {
-                setTile(state.map, tx, ty, TILES.SOIL);
-                this.particleSystem.createBurst(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE + TILE_SIZE / 2, '#795548');
-                this.showToast('Tilled Soil');
-            } else {
-                this.showToast('Too Exhausted!', '#ef5350');
-            }
-            return;
-        }
-
-        // Plant seed
-        if (tile === TILES.SOIL && !state.crops[key]) {
-            if (selectedItem && selectedItem.name.endsWith('_seed')) {
-                const type = selectedItem.name.replace('_seed', '');
-                const seedData = SEEDS[type];
-
-                // Check season validity
-                if (seedData.seasons && !seedData.seasons.includes(this.timeSystem.season)) {
-                    const seasonNames = ['Spring', 'Summer', 'Fall', 'Winter'];
-                    const validSeasons = seedData.seasons.map((s: number) => seasonNames[s]).join('/');
-                    this.showToast(`${seedData.name}: ${validSeasons} only!`, '#ef5350');
-                    return;
-                }
-
-                if (this.timeSystem.consumeEnergy(ENERGY_COST.PLANT)) {
-                    this.inventory.removeFromSlot(this.inventory.selected, 1);
-                    state.crops[key] = { type, stage: 0, x: tx, y: ty }; // Ensure properties are set
-                    this.showToast('Planted ' + seedData.name);
-                    this.syncInventory();
-                    saveGame();
-                } else {
-                    this.showToast('Too Exhausted!', '#ef5350');
-                }
-            } else {
-                this.showToast('Select Seeds!', '#ffa726');
-            }
-            return;
-        }
-
-        // Harvest crop
-        if (state.crops[key] && state.crops[key].stage >= 100) {
-            if (this.timeSystem.consumeEnergy(ENERGY_COST.HARVEST)) {
-                const crop = state.crops[key];
-                const data = SEEDS[crop.type];
-                this.inventory.addItem(crop.type, 1);
-
-                if (data.isTree) {
-                    // Fruit tree - regrows fruit
-                    crop.stage = data.regrow || 0;
-                    this.showToast('Harvested ' + data.name);
-                } else if (data.regrowable) {
-                    // Regrowable crop (corn, tomato, etc.) - resets to regrowStage
-                    crop.stage = data.regrowStage || 0;
-                    this.showToast('Harvested ' + data.name + '!');
-                } else {
-                    // Single harvest crop - destroyed after harvest
-                    if (Math.random() > 0.6) this.inventory.addItem(crop.type + '_seed', 1);
-                    delete state.crops[key];
-                    setTile(state.map, tx, ty, TILES.SOIL);
-                    this.showToast('Got ' + data.name);
-                }
-
-                this.particleSystem.createBurst(tx * TILE_SIZE + TILE_SIZE / 2, ty * TILE_SIZE + TILE_SIZE / 2, data.color);
-                this.syncInventory();
-                saveGame();
-            } else {
-                this.showToast('Too Exhausted!', '#ef5350');
-            }
-        }
+        // Delegate to InteractionSystem
+        this.interactionSystem.handleInteraction(tx, ty);
     }
+
 
     /**
      * Enter house - switch to interior map
      */
-    enterHouse() {
-        const state = getState();
-        if (state.currentMap !== 'overworld') return; // Fix infinite loop/re-entry
-
-        this.enterBuilding('house');
-    }
-
-    /**
-     * Enter shop - switch to interior map
-     */
-    enterShop() {
-        this.enterBuilding('shop');
-    }
-
-    /**
-     * Generic Enter Building
-     */
-    enterBuilding(type: string) {
-        if (!this.player) return;
-        const state = getState();
-        if (state.currentMap !== 'overworld') return; // Fix infinite loop/re-entry
-
-        // Save current overworld position
-        const lastPos = {
-            x: this.player.gridX,
-            y: this.player.gridY
-        };
-
-        const spawn = getInteriorSpawn(type);
-
-        let interior = state.interiors[type];
-        if (!interior) {
-            if (type === 'house') interior = generateHouseInterior();
-            else if (type === 'shop') interior = generateShopInterior();
-            else if (type === 'old_house') {
-                interior = generateOldHouseInterior();
-            }
-            else interior = generateHouseInterior(); // Fallback
-        }
-
-        setState({
-            screen: 'GAME',
-            currentMap: type + 'Interior', // e.g. houseInterior, shopInterior, old_houseInterior
-            lastOverworldPos: lastPos,
-            interiors: { ...state.interiors, [type]: interior },
-            player: {
-                ...this.player.serialize(),
-                gridX: spawn.x,
-                gridY: spawn.y,
-                visX: spawn.x * TILE_SIZE,
-                visY: spawn.y * TILE_SIZE,
-                facing: { x: 0, y: -1 } // Face up when entering
-            }
-        });
-
-        this.player.gridX = spawn.x;
-        this.player.gridY = spawn.y;
-        this.player.visX = spawn.x * TILE_SIZE;
-        this.player.visY = spawn.y * TILE_SIZE;
-        this.player.facing = { x: 0, y: -1 };
-
-        let name = type.charAt(0).toUpperCase() + type.slice(1);
-        if (type === 'old_house') name = 'Old Shack';
-        this.showToast(`Entering ${name}...`, '#90caf9');
-    }
-
-    /**
-     * Exit building - return to overworld
-     */
-    exitHouse() {
-        if (!this.player) return;
-        const state = getState();
-
-        // Restore overworld position (in front of door)
-        // Adjust logic to place player correctly adjacent to the building if needed
-        const lastPos = state.lastOverworldPos || {
-            x: Math.floor(MAP_WIDTH / 2),
-            y: Math.floor(MAP_HEIGHT / 2)
-        };
-
-        // Simple restoration for now, could be smarter about which side of door
-        // Reset player state
-        this.player.gridX = lastPos.x;
-        this.player.gridY = lastPos.y;
-        this.player.visX = lastPos.x * TILE_SIZE;
-        this.player.visY = lastPos.y * TILE_SIZE;
-        this.player.isMoving = false;
-        this.player.facing = { x: 0, y: 1 }; // Face down (away from building)
-
-        setState({
-            screen: 'GAME',
-            currentMap: 'overworld',
-            player: this.player.serialize()
-        });
-
-        // Ensure we handle building-specific logic if needed
-        if (state.currentMap === 'houseInterior') {
-            this.uiManager.setHouseVisible(false);
-        }
-    }
 
     /**
      * Sleep and start new day
@@ -890,19 +655,60 @@ export class Game {
     /**
      * Buy item from shop
      */
-    buyItem(seedType: string) {
+    buyItem(id: string) {
         if (!this.inventory) return;
         const state = getState();
-        const cost = SEEDS[seedType].cost;
 
-        if (state.money >= cost) {
-            if (this.inventory.addItem(seedType + '_seed', 1)) {
-                setState({ money: state.money - cost });
-                this.syncInventory();
-                saveGame();
+        // Check if it's a seed
+        if (SEEDS[id]) {
+            const cost = SEEDS[id].cost;
+            if (state.money >= cost) {
+                if (this.inventory.addItem(id + '_seed', 1)) {
+                    setState({ money: state.money - cost });
+                    this.syncInventory();
+                    saveGame();
+                }
+            } else {
+                this.showToast('Need Cash!', '#ef5350');
             }
-        } else {
-            this.showToast('Need Cash!', '#ef5350');
+            return;
+        }
+
+        // Check if it's an animal
+        if (ANIMAL_TYPES[id]) {
+            const def = ANIMAL_TYPES[id];
+            const cost = def.cost;
+
+            if (state.money < cost) {
+                this.showToast('Need Cash!', '#ef5350');
+                return;
+            }
+
+            // Find building for animal
+            const building = state.buildings.find((b: any) => {
+                const bDef = BUILDING_TYPES[b.type];
+                return bDef && bDef.animalTypes?.includes(def.name.toLowerCase()) && b.animals.length < bDef.capacity;
+            });
+
+            if (!building) {
+                const required = def.name === 'Chicken' ? 'Coop' : (def.name === 'Cow' ? 'Barn' : 'Building');
+                this.showToast(`Need an available ${required}!`, '#ef5350');
+                return;
+            }
+
+            // Buy and assign
+            const animal = new Animal(id, building.x, building.y, building.id);
+            building.animals.push(animal.id);
+            const newAnimals = [...state.animals, animal];
+
+            setState({
+                money: state.money - cost,
+                animals: newAnimals
+            });
+
+            this.showToast(`Bought ${def.name}!`, '#4caf50');
+            saveGame();
+            return;
         }
     }
 
@@ -1048,10 +854,171 @@ export class Game {
     /**
      * Sync inventory to state
      */
+    /**
+     * Handle item movement between slots (Drag & Drop)
+     */
+    handleItemMove(from: any, to: any) {
+        if (!this.inventory || !this.player) return;
+
+        let item: any = null;
+
+        // 1. Get the source item
+        if (from.type === 'inventory') {
+            item = this.inventory.slots[from.index];
+        } else if (from.type === 'equipment') {
+            item = (this.player.equipment as any)[from.index];
+        }
+
+        if (!item) return;
+
+        // 2. Determine action based on destination
+        if (to.type === 'inventory') {
+            const destIndex = to.index;
+            const destItem = this.inventory.slots[destIndex];
+
+            if (from.type === 'inventory') {
+                // Swap in inventory
+                this.inventory.slots[from.index] = destItem;
+                this.inventory.slots[destIndex] = item;
+            } else if (from.type === 'equipment') {
+                // Unequip to specific inventory slot
+                if (!destItem) {
+                    this.inventory.slots[destIndex] = item;
+                    (this.player.equipment as any)[from.index] = null;
+                } else {
+                    // Spot occupied, fallback to standard add
+                    (this.player.equipment as any)[from.index] = null;
+                    this.inventory.addItem(item.name, item.count || 1);
+                }
+            }
+        } else if (to.type === 'equipment') {
+            const destSlot = to.index;
+            // Check if item fits in this slot
+            if (this.canEquipInSlot(item, destSlot)) {
+                if (from.type === 'inventory') {
+                    // Equip from inventory
+                    const prevEquip = (this.player.equipment as any)[destSlot];
+                    (this.player.equipment as any)[destSlot] = item;
+                    this.inventory.slots[from.index] = prevEquip || null;
+                } else if (from.type === 'equipment') {
+                    // Swap equipment slots (if allowed)
+                    const prevEquip = (this.player.equipment as any)[destSlot];
+                    (this.player.equipment as any)[destSlot] = item;
+                    (this.player.equipment as any)[from.index] = prevEquip || null;
+                }
+            } else {
+                this.showToast(`Cannot equip ${item.name} in that slot!`, '#ef5350');
+            }
+        }
+
+        // Sync and save
+        this.syncInventory();
+        setState({ player: this.player.serialize() });
+        if (this.uiManager.equipmentModal) this.uiManager.equipmentModal.render();
+        saveGame();
+    }
+
+    /**
+     * Check if an item can be equipped in a specific slot
+     */
+    canEquipInSlot(item: any, slot: string): boolean {
+        if (!item) return false;
+        const type = item.type;
+
+        if (slot === 'weapon') return type === 'weapon' || type === 'tool';
+        if (slot === 'body') return type === 'armor' || type === 'outfit' || type === 'clothing';
+        if (slot === 'head') return type === 'hat' || type === 'helmet';
+        if (slot === 'offhand') return type === 'shield' || type === 'tool' || type === 'produce';
+        if (slot === 'legs') return type === 'pants' || type === 'shoes';
+
+        return false;
+    }
+
     syncInventory() {
         if (this.inventory) {
             setState({ inventory: this.inventory.serialize() });
         }
+    }
+
+    /**
+     * Transition between overworld maps
+     */
+    transitionToMap(mapName: string, newX: number, newY: number) {
+        if (!this.player) return;
+
+        setState({ currentMap: mapName });
+        this.player.gridX = newX;
+        this.player.gridY = newY;
+        this.player.visX = newX * TILE_SIZE;
+        this.player.visY = newY * TILE_SIZE;
+        this.player.isMoving = false;
+
+        // Load creeps when entering a dungeon
+        if (mapName.startsWith('dungeon_')) {
+            const state = getState();
+            const dungeonData = state.interiors[mapName];
+            if (dungeonData && dungeonData.npcs) {
+                // Instantiate Creep objects from saved data
+                this.creeps = dungeonData.npcs
+                    .filter((npc: any) => npc.type === 'creep' || npc.id?.startsWith('creep_'))
+                    .map((npcData: any) => ({
+                        ...npcData,
+                        visX: npcData.x * TILE_SIZE,
+                        visY: npcData.y * TILE_SIZE,
+                        gridX: npcData.x,
+                        gridY: npcData.y,
+                        moveTimer: 0,
+                        moveInterval: 2.0 / (npcData.speed || 1.0),
+                        update: function (dt: number, playerPos: { gridX: number, gridY: number }, map: number[][]) {
+                            this.moveTimer += dt;
+                            // Smooth visual position
+                            const targetX = this.gridX * TILE_SIZE;
+                            const targetY = this.gridY * TILE_SIZE;
+                            this.visX += (targetX - this.visX) * 2.0 * dt;
+                            this.visY += (targetY - this.visY) * 2.0 * dt;
+
+                            if (this.moveTimer >= this.moveInterval) {
+                                this.moveTimer = 0;
+                                // Simple AI: move towards player if close
+                                const dx = Math.sign(playerPos.gridX - this.gridX);
+                                const dy = Math.sign(playerPos.gridY - this.gridY);
+                                const dist = Math.abs(playerPos.gridX - this.gridX) + Math.abs(playerPos.gridY - this.gridY);
+
+                                let moveX = 0, moveY = 0;
+                                if (dist < 10 && Math.random() < 0.7) {
+                                    if (Math.abs(dx) > Math.abs(dy)) moveX = dx;
+                                    else moveY = dy;
+                                } else {
+                                    const rand = Math.random();
+                                    if (rand < 0.25) moveX = 1;
+                                    else if (rand < 0.5) moveX = -1;
+                                    else if (rand < 0.75) moveY = 1;
+                                    else moveY = -1;
+                                }
+
+                                const nextX = this.gridX + moveX;
+                                const nextY = this.gridY + moveY;
+                                if (nextX >= 0 && nextX < 40 && nextY >= 0 && nextY < 40) {
+                                    const tile = map[nextY]?.[nextX];
+                                    if (tile !== 21) { // DUNGEON_WALL = 21
+                                        this.gridX = nextX;
+                                        this.gridY = nextY;
+                                    }
+                                }
+                            }
+                        }
+                    }));
+                this.showToast(`Floor ${mapName.replace('dungeon_', '')} - ${this.creeps.length} enemies`, '#9e9e9e');
+            } else {
+                this.creeps = [];
+            }
+        } else {
+            // Clear creeps when leaving dungeon
+            this.creeps = [];
+        }
+
+        this.showToast(`Entered ${mapName.replace('overworld_', '') || 'the valley'}`);
+        saveGame();
     }
 
     /**
@@ -1087,177 +1054,7 @@ export class Game {
      * Draw the game
      */
     draw() {
-        if (!this.player || !this.timeSystem) return;
-        const state = getState();
-        if (state.screen === 'CREATOR') return;
-
-        this.renderer.clear();
-
-        // Update camera
-        const currentMap = this.getCurrentMap(state);
-        const mapHeight = currentMap.length;
-        const mapWidth = currentMap[0]?.length || 0;
-
-        const camera = this.renderer.updateCamera(this.player.visX, this.player.visY, state.zoom, mapWidth, mapHeight);
-        setState({ camera });
-
-        // Begin world drawing
-        this.renderer.beginWorldDraw(camera, state.zoom);
-
-        // Calculate Darkness (0.0=Day, 0.7=Night)
-        const hour = this.timeSystem.hour;
-        let darkness = 0;
-        if (hour >= 18 || hour < 6) {
-            // Transition sunset/sunrise
-            if (hour >= 18 && hour < 22) darkness = (hour - 18) / 4 * 0.7;
-            else if (hour >= 22 || hour < 4) darkness = 0.7;
-            else if (hour >= 4 && hour < 6) darkness = (1 - (hour - 4) / 2) * 0.7;
-        }
-
-        const range = this.renderer.getVisibleTileRange(camera, state.zoom);
-
-        // --- Pass 1: Ground Tiles ---
-        for (let y = range.startY; y < range.endY; y++) {
-            for (let x = range.startX; x < range.endX; x++) {
-                if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) continue;
-                const tile = currentMap[y][x];
-
-                if (state.currentMap === 'overworld') {
-                    // Always draw grass as base
-                    this.tileRenderer.drawTile(TILES.GRASS, x, y, this.timeSystem.season, currentMap);
-
-                    if (tile === TILES.SOIL || tile === TILES.WITHERED) {
-                        this.tileRenderer.drawTile(tile, x, y, this.timeSystem.season, currentMap);
-                    }
-                } else {
-                    if (tile === INTERIOR_TILES.FLOOR || tile === INTERIOR_TILES.RUG || tile === INTERIOR_TILES.DOOR) {
-                        this.tileRenderer.drawInteriorTile(tile, x, y);
-                    }
-                }
-            }
-        }
-
-        // --- Pass 2: Sorted Standing Objects & Entities ---
-        // We draw row by row. For each row, we draw standing tiles, then entities.
-        for (let y = range.startY; y < range.endY; y++) {
-            // 1. Standing Tiles for this row
-            for (let x = range.startX; x < range.endX; x++) {
-                if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) continue;
-                const tile = currentMap[y][x];
-
-                if (state.currentMap === 'overworld') {
-                    // Only draw NOT ground tiles (Trees, Buildings)
-                    if (tile !== TILES.GRASS && tile !== TILES.SOIL && tile !== TILES.WITHERED) {
-                        this.tileRenderer.drawTile(tile, x, y, this.timeSystem.season, currentMap);
-                    }
-                    const crop = state.crops[`${x},${y}`];
-                    if (crop) this.tileRenderer.drawCrop(crop, x, y);
-                } else {
-                    if (tile !== INTERIOR_TILES.FLOOR && tile !== INTERIOR_TILES.RUG && tile !== INTERIOR_TILES.DOOR) {
-                        this.tileRenderer.drawInteriorTile(tile, x, y);
-                    }
-                }
-            }
-
-            // 2. Entities whose "pivot" is in this row
-            // pivot is approx visY + TILE_SIZE
-            const rowBottomY = (y + 1) * TILE_SIZE;
-            const rowTopY = y * TILE_SIZE;
-
-            // NPCs
-            // Draw NPCs for the current map
-            const currentNpcs = (state.currentMap === 'overworld')
-                ? state.npcs
-                : (state.interiors[state.currentMap.replace('Interior', '')]?.npcs || []);
-
-            if (currentNpcs) {
-                currentNpcs.forEach((npc: any) => {
-                    const npcBottomY = (npc.y + 1) * TILE_SIZE;
-                    if (npcBottomY > rowTopY && npcBottomY <= rowBottomY) {
-                        this.tileRenderer.drawNPC(this.renderer.ctx, npc.x * TILE_SIZE, npc.y * TILE_SIZE, npc.id);
-                    }
-                });
-            }
-
-            // Pet
-            if (this.pet && state.currentMap === 'overworld') {
-                const petBottomY = this.pet.visY + TILE_SIZE;
-                if (petBottomY > rowTopY && petBottomY <= rowBottomY) {
-                    this.pet.draw(this.renderer.ctx, this.pet.visX + TILE_SIZE / 2, this.pet.visY + TILE_SIZE / 2);
-                }
-            }
-
-            // Player
-            // Fix: player visY is strictly top-left, center is +TILE_SIZE/2
-            // Pivot is feet -> +TILE_SIZE
-            const playerBottomY = this.player.visY + TILE_SIZE;
-            if (playerBottomY > rowTopY && playerBottomY <= rowBottomY) {
-                this.player.draw(this.renderer.ctx, this.player.visX + TILE_SIZE / 2, this.player.visY + TILE_SIZE / 2);
-            }
-        }
-
-        // --- Post-Pass: Indicators & Effects ---
-        if (state.destination) {
-            this.renderer.drawDestination(state.destination);
-        }
-
-        // --- Pass 4: Global Illumination & Lighting ---
-        if (darkness > 0) {
-            const lights = [];
-
-            // Player Light
-            const screenPos = {
-                x: (this.player.visX + TILE_SIZE / 2 - camera.x) * state.zoom,
-                y: (this.player.visY + TILE_SIZE / 2 - camera.y) * state.zoom
-            };
-            lights.push({ x: screenPos.x, y: screenPos.y, radius: 150 * state.zoom });
-
-            // Building Lights (Only if on screen)
-            if (state.currentMap === 'overworld') {
-                // Find visible buildings and add lights to windows
-                for (let y = range.startY; y < range.endY; y++) {
-                    for (let x = range.startX; x < range.endX; x++) {
-                        if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) continue;
-                        const tile = currentMap[y][x];
-
-                        if (tile === TILES.HOUSE || tile === TILES.SHOP || tile === TILES.OLD_HOUSE) {
-                            if (this.tileRenderer.isBottomLeftCorner(currentMap, x, y, tile)) {
-                                const bx = (x * TILE_SIZE - camera.x) * state.zoom;
-                                const by = (y * TILE_SIZE - camera.y) * state.zoom;
-
-                                // Window positions relative to building bottom-left
-                                if (tile === TILES.HOUSE) {
-                                    lights.push({ x: bx + 50 * state.zoom, y: by - 40 * state.zoom, radius: 60 * state.zoom });
-                                    lights.push({ x: bx + 100 * state.zoom, y: by - 40 * state.zoom, radius: 60 * state.zoom });
-                                } else if (tile === TILES.SHOP) {
-                                    lights.push({ x: bx + 40 * state.zoom, y: by - 30 * state.zoom, radius: 80 * state.zoom });
-                                    lights.push({ x: bx + 110 * state.zoom, y: by - 30 * state.zoom, radius: 80 * state.zoom });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            this.renderer.drawLightingOverlay(darkness, lights);
-        }
-
-        this.renderer.drawFacingIndicator();
-        this.particleSystem.drawParticles(this.renderer.ctx);
-
-        if (this.timeSystem.weather === 'Rain' && state.currentMap === 'overworld') {
-            this.particleSystem.drawRain(this.renderer.ctx, this.timeSystem.season === 3);
-        }
-
-        this.renderer.endWorldDraw();
-
-        // Draw overlays
-        if (this.timeSystem.weather === 'Rain' && state.currentMap === 'overworld') {
-            this.renderer.drawRainOverlay();
-        }
-
-        // Legacy Night overlay removed in favor of Pass 4 Lighting
-        this.renderer.drawMessages(state.messages);
+        this.renderingOrchestrator.draw();
     }
 
     /**
@@ -1267,9 +1064,13 @@ export class Game {
         if (state.currentMap === 'overworld') {
             return state.map;
         } else {
+            const interior = state.interiors[state.currentMap];
+            if (interior) return interior.map || interior;
+
+            // Fallback for legacy interior naming
             const interiorKey = state.currentMap.replace('Interior', '');
-            const interior = state.interiors[interiorKey];
-            return interior ? (interior.map || interior) : state.map;
+            const legacy = state.interiors[interiorKey];
+            return legacy ? (legacy.map || legacy) : state.map;
         }
     }
 
@@ -1290,9 +1091,13 @@ export class Game {
         if (state.currentMap === 'overworld') {
             currentNpcs = state.npcs || [];
         } else {
-            const interiorKey = state.currentMap.replace('Interior', '');
-            const interior = state.interiors[interiorKey];
+            const interior = state.interiors[state.currentMap];
             currentNpcs = interior?.npcs || [];
+
+            if (!interior) {
+                const interiorKey = state.currentMap.replace('Interior', '');
+                currentNpcs = state.interiors[interiorKey]?.npcs || [];
+            }
         }
 
         if (currentNpcs.some(npc => npc.x === x && npc.y === y)) {
@@ -1311,102 +1116,6 @@ export class Game {
     /**
      * Hit a resource tile (tree/stone) with Durability tracking
      */
-    hitResource(x: number, y: number, resourceTypeKey: string) {
-        if (!this.timeSystem || !this.inventory) return;
-        const state = getState();
-        const resourceType = RESOURCE_TYPES[resourceTypeKey];
-
-        if (!resourceType) {
-            console.warn('Unknown resource type:', resourceTypeKey);
-            return;
-        }
-
-        // Check if resource has toughness or hp defined (handle legacy/reload states)
-        const toughness = resourceType.toughness !== undefined ? resourceType.toughness : ((resourceType as any).hp || 1);
-
-        // Check energy
-        if (!this.timeSystem.consumeEnergy(resourceType.energyCost)) {
-            this.showToast('Too Exhausted!', '#ef5350');
-            return;
-        }
-
-        const key = `${x},${y}`;
-
-        // Get or initialize Durability for this tile
-        // We use 'resourceHP' in state for backward compatibility but conceptually it's durability
-        let currentDurability = state.resourceHP[key];
-        if (currentDurability === undefined) {
-            currentDurability = toughness;
-        }
-
-        // Hit the resource
-        currentDurability -= 1;
-
-        // Particle effect on hit
-        this.particleSystem.createBurst(
-            x * TILE_SIZE + TILE_SIZE / 2,
-            y * TILE_SIZE + TILE_SIZE / 2,
-            resourceType.color
-        );
-
-        if (currentDurability <= 0) {
-            // Resource destroyed - give items
-            for (const [item, count] of Object.entries(resourceType.yield)) {
-                this.inventory.addItem(item, count);
-            }
-
-            // Build toast message
-            const drops = Object.entries(resourceType.yield)
-                .map(([item, count]) => `+${count} ${item.charAt(0).toUpperCase() + item.slice(1)}`)
-                .join(', ');
-            this.showToast(drops, '#81c784');
-
-            // Clear the tile
-            setTile(state.map, x, y, TILES.GRASS);
-
-            // Remove durability tracking
-            delete state.resourceHP[key];
-            setState({ resourceHP: { ...state.resourceHP } });
-        } else {
-            // Resource damaged but not destroyed
-            this.showToast('Cracked!', '#ffa726'); // Visual/Text feedback without "HP"
-
-            // Save Durability state
-            state.resourceHP[key] = currentDurability;
-            setState({ resourceHP: { ...state.resourceHP } });
-        }
-
-        this.syncInventory();
-        saveGame();
-    }
-
-
-    /**
-     * Interact with NPC
-     */
-    interactWithNPC(npc: any) {
-        const state = getState();
-
-        if (npc.id === NPC_IDS.OLD_MAN) {
-            if (!state.player.questFlags || !state.player.questFlags.hasSword) {
-                this.uiManager.showDialogue(
-                    "It's dangerous to go alone! Take this.",
-                    () => {
-                        if (!this.inventory || !this.player) return; // TS Check
-                        this.inventory.addItem('WOODEN_SWORD', 1);
-                        if (!this.player.questFlags) this.player.questFlags = {};
-                        this.player.questFlags.hasSword = true;
-                        this.showToast("Got Wooden Sword!", '#ffd700');
-                        setState({ player: this.player.serialize() });
-                        this.syncInventory();
-                        saveGame();
-                    }
-                );
-            } else {
-                this.uiManager.showDialogue("Be careful out there, young farmer.", () => { });
-            }
-        }
-    }
 
 }
 

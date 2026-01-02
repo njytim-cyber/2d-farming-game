@@ -15,6 +15,7 @@ interface InputCallbacks {
     action: ActionCallback[];
     click: ClickCallback[];
     zoom: ZoomCallback[];
+    profile: ActionCallback[];
 }
 
 export class InputManager {
@@ -34,7 +35,8 @@ export class InputManager {
             move: [],
             action: [],
             click: [],
-            zoom: []
+            zoom: [],
+            profile: []
         };
 
         this.enabled = false;
@@ -116,6 +118,14 @@ export class InputManager {
     }
 
     /**
+     * Register profile callback
+     */
+    onProfile(callback: ActionCallback): () => void {
+        this.callbacks.profile.push(callback);
+        return () => this.removeCallback('profile', callback);
+    }
+
+    /**
      * Remove a callback
      */
     removeCallback(type: keyof InputCallbacks, callback: any) {
@@ -158,6 +168,11 @@ export class InputManager {
             // Prevent default scrolling for space
             if (key === ' ') e.preventDefault();
             this.callbacks.action.forEach(cb => cb());
+        }
+
+        // Profile / Equipment
+        if (['c', 'p', 'i'].includes(key)) {
+            this.callbacks.profile.forEach(cb => cb());
         }
     }
 

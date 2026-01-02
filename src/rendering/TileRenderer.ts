@@ -8,9 +8,36 @@ import { Crop } from '../entities/Crop';
 
 export class TileRenderer {
     ctx: CanvasRenderingContext2D;
+    private spriteCache: Map<string, HTMLCanvasElement> = new Map();
 
     constructor(ctx: CanvasRenderingContext2D) {
         this.ctx = ctx;
+    }
+
+    /**
+     * Clear the sprite cache (call on season change or resize)
+     */
+    clearCache() {
+        this.spriteCache.clear();
+    }
+
+    /**
+     * Get a cached sprite or create it
+     */
+    private getCachedSprite(key: string, width: number, height: number, drawFn: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement {
+        if (this.spriteCache.has(key)) {
+            return this.spriteCache.get(key)!;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+
+        drawFn(ctx);
+
+        this.spriteCache.set(key, canvas);
+        return canvas;
     }
 
     /**
@@ -51,26 +78,17 @@ export class TileRenderer {
 
         switch (tileType) {
             case TILES.GRASS: {
-                // Subtle color variation (Wang-like)
+                // ... same grass logic ...
+                // Grass is cheap and variant-heavy (random), so maybe don't cache or cache a set of variants
+                // For now keep as is or optimize later. Grass is simple rects.
+                // Re-implementing original logic for compactness
                 const gSeed = (x * 12345) ^ (y * 67890);
-                const gRand = (Math.abs(gSeed) % 10) / 100; // 0.0 to 0.1
+                const gRand = (Math.abs(gSeed) % 10) / 100;
                 ctx.fillStyle = colors.grass;
-
-                // Slightly darken/lighten
-                if (gRand > 0.05) {
-                    ctx.globalAlpha = 0.9 + gRand; // 0.95 to 1.05 influence... wait globalAlpha is 0-1
-                    // Better to just adjust the color slightly
-                    ctx.fillStyle = colors.grass; // Placeholder for now, coloring is fixed
-                }
-
+                if (gRand > 0.05) ctx.fillStyle = colors.grass;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-
-                // Add a very subtle overlay for variety
                 ctx.fillStyle = 'rgba(0,0,0,' + (gRand * 0.05) + ')';
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-
-                // Procedural Decoration (Tufts, Flowers)
-                this.drawGrassDecoration(ctx, px, py, x, y);
                 break;
             }
 
@@ -83,159 +101,122 @@ export class TileRenderer {
                 break;
 
             case TILES.TREE:
-                // Shadow
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                ctx.beginPath();
-                ctx.ellipse(px + 25, py + 45, 15, 6, 0, 0, Math.PI * 2);
-                ctx.fill();
-                // Trunk
-                ctx.fillStyle = PALETTE.wood;
-                ctx.fillRect(px + 21, py + 15, 8, 30);
-                // Lower Leaves
-                ctx.fillStyle = colors.tree;
-                ctx.beginPath();
-                ctx.arc(px + 25, py + 5, 20, 0, Math.PI * 2);
-                ctx.fill();
-                // Upper Leaves
-                ctx.beginPath();
-                ctx.arc(px + 25, py - 10, 16, 0, Math.PI * 2);
-                ctx.fill();
-                // Highlight
-                ctx.fillStyle = PALETTE.leaf_light + '22'; // Subtle alpha
-                ctx.beginPath();
-                ctx.arc(px + 20, py - 15, 10, 0, Math.PI * 2);
-                ctx.fill();
+                // Cache Tree
+                // Draw sprite centered in 100x100 canvas
+                const treeKey = `TREE_${seasonIndex}`;
+                const treeSprite = this.getCachedSprite(treeKey, 100, 100, (c) => {
+                    this.drawTree(c, 50, 50, colors);
+                });
+                // Draw sprite so 50,50 aligns with tile center? 
+                // drawTree(c, 50, 50) draws tree at 50,50.
+                // In drawTile, tree was drawn at px, py.
+                // Specifically: shadow at px+25, py+45.
+                // Use offset -25, -25 relative to px,py?
+                // Let's check drawTree implementation below.
+                // If I draw at 0,0 in cached sprite, I need to shift when drawing cache.
+                // Let's standardize: Cached Sprite top-left is Px, Py (but extended).
+                ctx.drawImage(treeSprite, px - 25, py - 25);
                 break;
 
             case TILES.STONE:
-                // Shadow
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                ctx.beginPath();
-                ctx.ellipse(px + 25, py + 40, 15, 6, 0, 0, Math.PI * 2);
-                ctx.fill();
-                // Rock Structure (3/4 depth)
-                ctx.fillStyle = PALETTE.stone_dark; // Front
-                ctx.beginPath();
-                ctx.moveTo(px + 10, py + 40);
-                ctx.lineTo(px + 10, py + 25);
-                ctx.lineTo(px + 20, py + 15);
-                ctx.lineTo(px + 40, py + 15);
-                ctx.lineTo(px + 45, py + 30);
-                ctx.lineTo(px + 45, py + 40);
-                ctx.closePath();
-                ctx.fill();
-                // Top Highlight
-                ctx.fillStyle = PALETTE.stone;
-                ctx.beginPath();
-                ctx.moveTo(px + 20, py + 15);
-                ctx.lineTo(px + 40, py + 15);
-                ctx.lineTo(px + 43, py + 25);
-                ctx.lineTo(px + 15, py + 25);
-                ctx.closePath();
-                ctx.fill();
+                const stoneKey = 'STONE';
+                const stoneSprite = this.getCachedSprite(stoneKey, 75, 75, (c) => {
+                    this.drawStone(c, 37, 37);
+                });
+                ctx.drawImage(stoneSprite, px - 12, py - 12);
                 break;
 
             case TILES.STONE_ORE:
-                // Shadow
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                ctx.beginPath();
-                ctx.ellipse(px + 25, py + 40, 15, 6, 0, 0, Math.PI * 2);
-                ctx.fill();
-                // Rock (3/4 perspective)
-                ctx.fillStyle = PALETTE.stone_dark;
-                ctx.beginPath();
-                ctx.moveTo(px + 10, py + 40);
-                ctx.lineTo(px + 10, py + 25);
-                ctx.lineTo(px + 25, py + 15);
-                ctx.lineTo(px + 40, py + 25);
-                ctx.lineTo(px + 40, py + 40);
-                ctx.closePath();
-                ctx.fill();
-                // Ore Highlight
-                ctx.fillStyle = PALETTE.orange;
-                ctx.fillRect(px + 18, py + 22, 6, 6);
-                ctx.fillRect(px + 28, py + 28, 4, 4);
+                const oreKey = 'STONE_ORE';
+                const oreSprite = this.getCachedSprite(oreKey, 75, 75, (c) => {
+                    this.drawStoneOre(c, 37, 37);
+                });
+                ctx.drawImage(oreSprite, px - 12, py - 12);
                 break;
 
             case TILES.STONE_BOULDER:
-                // Shadow
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-                ctx.beginPath();
-                ctx.ellipse(px + 25, py + 42, 18, 8, 0, 0, Math.PI * 2);
-                ctx.fill();
-                // Large Boulder (3/4 Dome)
-                ctx.fillStyle = '#616161';
-                ctx.beginPath();
-                ctx.ellipse(px + 25, py + 30, 20, 15, 0, 0, Math.PI * 2);
-                ctx.fill();
-                // Upper highlight
-                ctx.fillStyle = '#757575';
-                ctx.beginPath();
-                ctx.ellipse(px + 22, py + 25, 12, 8, 0, 0, Math.PI * 2);
-                ctx.fill();
+                const boulderKey = 'STONE_BOULDER';
+                const boulderSprite = this.getCachedSprite(boulderKey, 75, 75, (c) => {
+                    this.drawBoulder(c, 37, 37);
+                });
+                ctx.drawImage(boulderSprite, px - 12, py - 12);
                 break;
 
             case TILES.TREE_OAK:
-                // Shadow
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-                ctx.beginPath();
-                ctx.ellipse(px + 25, py + 45, 18, 8, 0, 0, Math.PI * 2);
-                ctx.fill();
-                // Trunk (Wide)
-                ctx.fillStyle = '#3e2723';
-                ctx.fillRect(px + 16, py + 10, 18, 35);
-                // Large Round Leaves
-                ctx.fillStyle = '#1b5e20';
-                ctx.beginPath();
-                ctx.arc(px + 25, py - 5, 24, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(px + 10, py + 5, 15, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(px + 40, py + 5, 15, 0, Math.PI * 2);
-                ctx.fill();
+                const oakKey = 'TREE_OAK'; // Oak doesn't change color currently
+                const oakSprite = this.getCachedSprite(oakKey, 100, 100, (c) => {
+                    this.drawOak(c, 50, 50);
+                });
+                ctx.drawImage(oakSprite, px - 25, py - 25);
                 break;
 
             case TILES.HOUSE:
-                // Draw when bottom-left is reached for correct depth sorting
                 if (map && this.isBottomLeftCorner(map, x, y, TILES.HOUSE)) {
-                    this.drawHouse3x3(px, py - (TILE_SIZE * 2), ctx);
+                    // Cache House
+                    const houseKey = 'HOUSE';
+                    const hSize = TILE_SIZE * 3;
+                    const houseSprite = this.getCachedSprite(houseKey, hSize, hSize, (c) => {
+                        this.drawHouse3x3(0, 0, c); // Draw at 0,0 of cached canvas
+                    });
+                    // drawHouse3x3 was called with py - (TILE_SIZE * 2).
+                    // If cached sprite is drawn at 0,0, we draw image at px, py - (TILE_SIZE * 2)
+                    ctx.drawImage(houseSprite, px, py - (TILE_SIZE * 2));
                 }
                 break;
 
             case TILES.SHOP:
                 if (map && this.isBottomLeftCorner(map, x, y, TILES.SHOP)) {
-                    this.drawShop3x3(px, py - (TILE_SIZE * 2), ctx);
+                    const shopKey = 'SHOP';
+                    const sSize = TILE_SIZE * 3;
+                    const shopSprite = this.getCachedSprite(shopKey, sSize, sSize, (c) => {
+                        this.drawShop3x3(0, 0, c);
+                    });
+                    ctx.drawImage(shopSprite, px, py - (TILE_SIZE * 2));
                 }
                 break;
 
             case TILES.OLD_HOUSE:
                 if (map && this.isBottomLeftCorner(map, x, y, TILES.OLD_HOUSE)) {
-                    this.drawOldHouse8x4(px, py - (TILE_SIZE * 3), ctx);
+                    const oldKey = 'OLD_HOUSE';
+                    const oW = TILE_SIZE * 8;
+                    const oH = TILE_SIZE * 4;
+                    const oldSprite = this.getCachedSprite(oldKey, oW, oH, (c) => {
+                        this.drawOldHouse8x4(0, 0, c);
+                    });
+                    ctx.drawImage(oldSprite, px, py - (TILE_SIZE * 3));
+                }
+                break;
+
+            case TILES.COOP:
+                if (map && this.isBottomLeftCorner(map, x, y, TILES.COOP)) {
+                    const coopKey = 'COOP';
+                    const coopW = TILE_SIZE * 6;
+                    const coopH = TILE_SIZE * 4;
+                    const coopSprite = this.getCachedSprite(coopKey, coopW, coopH, (c) => {
+                        this.drawCoop6x4(0, 0, c);
+                    });
+                    ctx.drawImage(coopSprite, px, py - (TILE_SIZE * 3));
+                }
+                break;
+
+            case TILES.BARN:
+                if (map && this.isBottomLeftCorner(map, x, y, TILES.BARN)) {
+                    const barnKey = 'BARN';
+                    const barnW = TILE_SIZE * 8;
+                    const barnH = TILE_SIZE * 4;
+                    const barnSprite = this.getCachedSprite(barnKey, barnW, barnH, (c) => {
+                        this.drawBarn8x4(0, 0, c);
+                    });
+                    ctx.drawImage(barnSprite, px, py - (TILE_SIZE * 3));
                 }
                 break;
 
             case TILES.WITHERED:
-                // Dead crop debris - brownish soil with dead plant matter
-                ctx.fillStyle = '#4a3728';
-                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                // Dead roots/stems
-                ctx.fillStyle = '#6d5847';
-                ctx.fillRect(px + 8, py + 15, 4, 20);
-                ctx.fillRect(px + 20, py + 10, 3, 25);
-                ctx.fillRect(px + 35, py + 18, 4, 18);
-                // Wilted leaves
-                ctx.fillStyle = '#8b7355';
-                ctx.beginPath();
-                ctx.ellipse(px + 10, py + 12, 6, 4, 0.3, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.ellipse(px + 22, py + 8, 5, 3, -0.2, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.ellipse(px + 38, py + 15, 5, 3, 0.5, 0, Math.PI * 2);
-                ctx.fill();
+                this.drawWithered(ctx, px, py);
+                break;
+
+            case TILES.CAVE:
+                this.drawCave(ctx, px, py);
                 break;
 
             default:
@@ -243,6 +224,166 @@ export class TileRenderer {
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         }
     }
+
+    // --- Extracted Draw Methods ---
+
+    drawTree(ctx: CanvasRenderingContext2D, px: number, py: number, colors: any) {
+        // Adjusted offsets assuming px,py is center-ish or top-left?
+        // Helper: in drawTile, we call drawTree(c, 50, 50).
+        // In original: px,py was top-left of tile.
+        // Shadow: px+25, py+45.  (Relative to 50,50 -> +0, +20) -> (50, 70)
+        // Trunk: px+21, py+15. -> (-4, -10) -> (46, 40) relative to 50,50?
+        // Wait.
+        // Calling `drawTree(c, 50, 50)` means `px=50, py=50`.
+        // Original: `ctx.ellipse(px + 25, ...)`
+        // If px=50, ellipse at 75?
+        // We drawImage at `original_px - 25`.
+        // So `new_px = original_px - 25`.
+        // `drawTree` draws at `50`. canvas coordinate `75`.
+        // Screen coordinate: `original_px - 25 + 75 = original_px + 50`.
+        // Original shadow: `original_px + 25`.
+        // Discrepancy of 25.
+        //
+        // Let's reset.
+        // Original: `shadow at px+25`.
+        // New: `drawImage(sprite, px-25, ...)`. Sprite has shadow at X.
+        // `px - 25 + X = px + 25` => `X = 50`.
+        // So if I pass `px=25, py=25` to drawTree, then `px+25` becomes `50` (center of 75x75 sprite?).
+        // Let's use `drawTree` exactly as the original code block, but pass relative coordinates.
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.beginPath();
+        ctx.ellipse(px + 25, py + 45, 15, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Trunk
+        ctx.fillStyle = PALETTE.wood;
+        ctx.fillRect(px + 21, py + 15, 8, 30);
+        // Lower Leaves
+        ctx.fillStyle = colors.tree;
+        ctx.beginPath();
+        ctx.arc(px + 25, py + 5, 20, 0, Math.PI * 2);
+        ctx.fill();
+        // Upper Leaves
+        ctx.beginPath();
+        ctx.arc(px + 25, py - 10, 16, 0, Math.PI * 2);
+        ctx.fill();
+        // Highlight
+        ctx.fillStyle = PALETTE.leaf_light + '22';
+        ctx.beginPath();
+        ctx.arc(px + 20, py - 15, 10, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    drawStone(ctx: CanvasRenderingContext2D, px: number, py: number) {
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.beginPath();
+        ctx.ellipse(px + 25, py + 40, 15, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Rock Structure
+        ctx.fillStyle = PALETTE.stone_dark;
+        ctx.beginPath();
+        ctx.moveTo(px + 10, py + 40);
+        ctx.lineTo(px + 10, py + 25);
+        ctx.lineTo(px + 20, py + 15);
+        ctx.lineTo(px + 40, py + 15);
+        ctx.lineTo(px + 45, py + 30);
+        ctx.lineTo(px + 45, py + 40);
+        ctx.closePath();
+        ctx.fill();
+        // Top Highlight
+        ctx.fillStyle = PALETTE.stone;
+        ctx.beginPath();
+        ctx.moveTo(px + 20, py + 15);
+        ctx.lineTo(px + 40, py + 15);
+        ctx.lineTo(px + 43, py + 25);
+        ctx.lineTo(px + 15, py + 25);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    drawStoneOre(ctx: CanvasRenderingContext2D, px: number, py: number) {
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.beginPath();
+        ctx.ellipse(px + 25, py + 40, 15, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Rock
+        ctx.fillStyle = PALETTE.stone_dark;
+        ctx.beginPath();
+        ctx.moveTo(px + 10, py + 40);
+        ctx.lineTo(px + 10, py + 25);
+        ctx.lineTo(px + 25, py + 15);
+        ctx.lineTo(px + 40, py + 25);
+        ctx.lineTo(px + 40, py + 40);
+        ctx.closePath();
+        ctx.fill();
+        // Ore Highlight
+        ctx.fillStyle = PALETTE.orange;
+        ctx.fillRect(px + 18, py + 22, 6, 6);
+        ctx.fillRect(px + 28, py + 28, 4, 4);
+    }
+
+    drawBoulder(ctx: CanvasRenderingContext2D, px: number, py: number) {
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(px + 25, py + 42, 18, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Large Boulder
+        ctx.fillStyle = '#616161';
+        ctx.beginPath();
+        ctx.ellipse(px + 25, py + 30, 20, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Upper highlight
+        ctx.fillStyle = '#757575';
+        ctx.beginPath();
+        ctx.ellipse(px + 22, py + 25, 12, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    drawOak(ctx: CanvasRenderingContext2D, px: number, py: number) {
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(px + 25, py + 45, 18, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Trunk
+        ctx.fillStyle = '#3e2723';
+        ctx.fillRect(px + 16, py + 10, 18, 35);
+        // Large Round Leaves
+        ctx.fillStyle = '#1b5e20';
+        ctx.beginPath();
+        ctx.arc(px + 25, py - 5, 24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px + 10, py + 5, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px + 40, py + 5, 15, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    drawWithered(ctx: CanvasRenderingContext2D, px: number, py: number) {
+        ctx.fillStyle = '#4a3728';
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        ctx.fillStyle = '#6d5847';
+        ctx.fillRect(px + 8, py + 15, 4, 20);
+        ctx.fillRect(px + 20, py + 10, 3, 25);
+        ctx.fillRect(px + 35, py + 18, 4, 18);
+        ctx.fillStyle = '#8b7355';
+        ctx.beginPath();
+        ctx.ellipse(px + 10, py + 12, 6, 4, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(px + 22, py + 8, 5, 3, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(px + 38, py + 15, 5, 3, 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
 
     /**
      * Draw Grass Decoration
@@ -539,41 +680,137 @@ export class TileRenderer {
     }
 
     /**
-     * Draw NPC
+     * Draw Coop (6x4)
+     * Yellow wooden coop for chickens
      */
-    drawNPC(ctx: CanvasRenderingContext2D, x: number, y: number, id: string) {
-        // Center NPC in tile
-        const drawX = x + TILE_SIZE / 2;
-        const drawY = y + TILE_SIZE / 2;
+    drawCoop6x4(px: number, py: number, ctx: CanvasRenderingContext2D) {
+        const width = TILE_SIZE * 6;
+        const height = TILE_SIZE * 4;
 
-        if (id === 'old_man') {
-            // Use standard player-like proportions for Old Man
-            const px = drawX - 10;
-            const py = drawY - 15;
+        // Base/Foundation
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(px, py + height - 20, width, 20);
 
-            // Robe/Body
-            ctx.fillStyle = '#6d4c41';
-            ctx.fillRect(px + 2, py + 8, 16, 22);
+        // Main body (yellow wood)
+        ctx.fillStyle = '#ffcc80';
+        ctx.fillRect(px + 10, py + 30, width - 20, height - 50);
 
-            // Head
-            ctx.fillStyle = '#ffcc80';
-            ctx.fillRect(px + 2, py - 6, 16, 14);
+        // Roof
+        ctx.fillStyle = '#8d6e63';
+        ctx.beginPath();
+        ctx.moveTo(px, py + 35);
+        ctx.lineTo(px + width / 2, py);
+        ctx.lineTo(px + width, py + 35);
+        ctx.closePath();
+        ctx.fill();
 
-            // Beard (White, 3/4 depth)
-            ctx.fillStyle = '#eeeeee';
-            ctx.fillRect(px + 2, py + 4, 16, 8);
-            ctx.fillRect(px + 4, py + 12, 12, 6);
+        // Roof outline
+        ctx.strokeStyle = '#5d4037';
+        ctx.lineWidth = 3;
+        ctx.stroke();
 
-            // Staff
-            ctx.fillStyle = '#8d6e63';
-            ctx.fillRect(px + 20, py - 5, 4, 38);
+        // Door (center bottom)
+        const doorW = TILE_SIZE * 1.5;
+        const doorH = 60;
+        const doorX = px + width / 2 - doorW / 2;
+        const doorY = py + height - 20 - doorH;
 
-            // Eyes
-            ctx.fillStyle = 'black';
-            ctx.fillRect(px + 5, py - 2, 2, 2);
-            ctx.fillRect(px + 13, py - 2, 2, 2);
-        }
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(doorX, doorY, doorW, doorH);
+
+        // Door arch
+        ctx.fillStyle = '#3e2723';
+        ctx.beginPath();
+        ctx.arc(doorX + doorW / 2, doorY, doorW / 2, Math.PI, 0);
+        ctx.fill();
+
+        // Windows
+        const windowSize = 25;
+        ctx.fillStyle = '#81d4fa';
+        ctx.fillRect(px + 40, py + 60, windowSize, windowSize);
+        ctx.fillRect(px + width - 65, py + 60, windowSize, windowSize);
+
+        // Window frames
+        ctx.strokeStyle = '#5d4037';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 40, py + 60, windowSize, windowSize);
+        ctx.strokeRect(px + width - 65, py + 60, windowSize, windowSize);
     }
+
+    /**
+     * Draw Barn (8x4)
+     * Red barn for cows
+     */
+    drawBarn8x4(px: number, py: number, ctx: CanvasRenderingContext2D) {
+        const width = TILE_SIZE * 8;
+        const height = TILE_SIZE * 4;
+
+        // Base/Foundation
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(px, py + height - 20, width, 20);
+
+        // Main body (red wood)
+        ctx.fillStyle = '#c62828';
+        ctx.fillRect(px + 10, py + 40, width - 20, height - 60);
+
+        // Barn front X pattern
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(px + 20, py + 50);
+        ctx.lineTo(px + width - 20, py + height - 30);
+        ctx.moveTo(px + width - 20, py + 50);
+        ctx.lineTo(px + 20, py + height - 30);
+        ctx.stroke();
+
+        // Roof (gambrel style)
+        ctx.fillStyle = '#8d6e63';
+        ctx.beginPath();
+        ctx.moveTo(px, py + 45);
+        ctx.lineTo(px + width * 0.2, py + 25);
+        ctx.lineTo(px + width / 2, py);
+        ctx.lineTo(px + width * 0.8, py + 25);
+        ctx.lineTo(px + width, py + 45);
+        ctx.closePath();
+        ctx.fill();
+
+        // Roof outline
+        ctx.strokeStyle = '#5d4037';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Large barn door
+        const doorW = TILE_SIZE * 2;
+        const doorH = 80;
+        const doorX = px + width / 2 - doorW / 2;
+        const doorY = py + height - 20 - doorH;
+
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(doorX, doorY, doorW, doorH);
+
+        // Door horizontal lines
+        ctx.strokeStyle = '#3e2723';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(doorX + 5, doorY + 20);
+        ctx.lineTo(doorX + doorW - 5, doorY + 20);
+        ctx.moveTo(doorX + 5, doorY + 40);
+        ctx.lineTo(doorX + doorW - 5, doorY + 40);
+        ctx.moveTo(doorX + 5, doorY + 60);
+        ctx.lineTo(doorX + doorW - 5, doorY + 60);
+        ctx.stroke();
+
+        // Hay loft window
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(px + width / 2, py + 25, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffc107';
+        ctx.beginPath();
+        ctx.arc(px + width / 2, py + 25, 12, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
 
     /**
      * Draw a crop
@@ -915,11 +1152,158 @@ export class TileRenderer {
                 ctx.fill();
                 break;
 
+            case INTERIOR_TILES.BASKET:
+                // Floor
+                ctx.fillStyle = '#deb887';
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Basket body (woven look)
+                ctx.fillStyle = '#a1887f';
+                ctx.beginPath();
+                ctx.ellipse(px + TILE_SIZE / 2, py + TILE_SIZE / 2 + 5, 18, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Basket rim
+                ctx.strokeStyle = '#6d4c41';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(px + TILE_SIZE / 2, py + TILE_SIZE / 2 - 5, 18, 8, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                // Eggs inside
+                ctx.fillStyle = '#fff8e1';
+                ctx.beginPath();
+                ctx.ellipse(px + TILE_SIZE / 2 - 5, py + TILE_SIZE / 2, 5, 7, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(px + TILE_SIZE / 2 + 5, py + TILE_SIZE / 2 + 2, 5, 7, -0.2, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+
+            case INTERIOR_TILES.PAIL:
+                // ...pail logic...
+                break;
+
+            case TILES.DUNGEON_FLOOR:
+                ctx.fillStyle = '#424242'; // Dark floor
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Grid pattern
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                break;
+
+            case TILES.DUNGEON_WALL:
+                ctx.fillStyle = '#212121'; // Very dark wall
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Brick detail
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+                break;
+
+            case TILES.DUNGEON_STAIRS:
+                ctx.fillStyle = '#757575';
+                ctx.fillRect(px + 5, py + 5, TILE_SIZE - 10, TILE_SIZE - 10);
+                // Stairs lines
+                ctx.strokeStyle = '#424242';
+                ctx.lineWidth = 3;
+                for (let i = 0; i < 4; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(px + 10, py + 12 + i * 8);
+                    ctx.lineTo(px + TILE_SIZE - 10, py + 12 + i * 8);
+                    ctx.stroke();
+                }
+                break;
+
             default:
-                // Generic floor if unknown
                 ctx.fillStyle = PALETTE.wood;
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
         }
+    }
+
+    drawCave(ctx: CanvasRenderingContext2D, px: number, py: number) {
+        ctx.fillStyle = PALETTE.stone_dark;
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        // Cave opening
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE, TILE_SIZE / 2, Math.PI, 0);
+        ctx.fill();
+    }
+
+    /**
+     * Draw NPC (including creeps)
+     */
+    drawNPC(ctx: CanvasRenderingContext2D, x: number, y: number, data: any) {
+        const id = typeof data === 'string' ? data : data.id;
+        const type = data.type;
+
+        // Center NPC in tile
+        const drawX = x + TILE_SIZE / 2;
+        const drawY = y + TILE_SIZE / 2;
+
+        // Dungeon Creeps
+        if (id.startsWith('creep_') || type === 'CREEP') {
+            this.drawCreep(ctx, x, y, data);
+            return;
+        }
+
+        if (id === 'old_man') {
+            const px = drawX - 10;
+            const py = drawY - 15;
+            ctx.fillStyle = '#6d4c41';
+            ctx.fillRect(px + 2, py + 8, 16, 22);
+            ctx.fillStyle = '#ffcc80';
+            ctx.fillRect(px + 2, py - 6, 16, 14);
+            ctx.fillStyle = '#eeeeee';
+            ctx.fillRect(px + 2, py + 4, 16, 8);
+            ctx.fillRect(px + 4, py + 12, 12, 6);
+            ctx.fillStyle = '#8d6e63';
+            ctx.fillRect(px + 20, py - 5, 4, 38);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(px + 5, py - 2, 2, 2);
+            ctx.fillRect(px + 13, py - 2, 2, 2);
+        } else if (id === 'shopkeeper') {
+            const px = drawX - 10;
+            const py = drawY - 15;
+            ctx.fillStyle = PALETTE.red;
+            ctx.fillRect(px + 2, py + 8, 16, 22);
+            ctx.fillStyle = '#ffcc80';
+            ctx.fillRect(px + 2, py - 6, 16, 14);
+            ctx.fillStyle = '#ffd700'; // Golden vest
+            ctx.fillRect(px + 4, py + 10, 12, 10);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(px + 5, py - 2, 2, 2);
+            ctx.fillRect(px + 13, py - 2, 2, 2);
+        } else {
+            // Default NPC representation
+            ctx.fillStyle = PALETTE.purple;
+            ctx.beginPath();
+            ctx.arc(drawX, drawY, 18, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    drawCreep(ctx: CanvasRenderingContext2D, x: number, y: number, data: any) {
+        const color = data.color || '#ff0000';
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(x + TILE_SIZE / 2, y + TILE_SIZE - 5, 12, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x + TILE_SIZE / 2, y + TILE_SIZE / 2, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x + TILE_SIZE / 2 - 5, y + TILE_SIZE / 2 - 2, 3, 0, Math.PI * 2);
+        ctx.arc(x + TILE_SIZE / 2 + 5, y + TILE_SIZE / 2 - 2, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(x + TILE_SIZE / 2 - 5, y + TILE_SIZE / 2 - 2, 1, 0, Math.PI * 2);
+        ctx.arc(x + TILE_SIZE / 2 + 5, y + TILE_SIZE / 2 - 2, 1, 0, Math.PI * 2);
+        ctx.fill();
     }
 }
 

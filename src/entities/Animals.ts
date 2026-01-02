@@ -25,18 +25,18 @@ interface AnimalDef {
 export const ANIMAL_TYPES: Record<string, AnimalDef> = {
     chicken: {
         name: 'Chicken',
-        cost: 200,
+        cost: 1,           // Testing price
         product: 'egg',
-        productChance: 0.8,      // 80% chance per day when happy
+        productChance: 0.8,
         productValue: 25,
         maxFriendship: 100,
-        friendshipGain: 10,     // Per feeding/petting
+        friendshipGain: 10,
         color: '#ffffff',
-        size: 0.6               // Relative to tile size
+        size: 0.6
     },
     cow: {
         name: 'Cow',
-        cost: 500,
+        cost: 1,           // Testing price
         product: 'milk',
         productChance: 0.5,
         productValue: 50,

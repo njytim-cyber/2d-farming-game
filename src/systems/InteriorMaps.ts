@@ -1,7 +1,4 @@
-/**
- * Generate house interior (10x10)
- */
-import { INTERIOR_TILES } from '../game/constants';
+import { INTERIOR_TILES, NPC_IDS } from '../game/constants';
 
 interface InteriorResult {
     map: number[][];
@@ -127,7 +124,12 @@ export function generateShopInterior(): InteriorResult {
         map.push(row);
     }
 
-    return { map, npcs: [] };
+    return {
+        map,
+        npcs: [
+            { id: NPC_IDS.SHOPKEEPER, x: 7, y: 2, type: 'npc' }
+        ]
+    };
 }
 
 /**
@@ -170,6 +172,66 @@ export function generateOldHouseInterior(): InteriorResult {
 }
 
 /**
+ * Generate Coop interior (6x4)
+ * Contains basket for egg collection
+ */
+export function generateCoopInterior(): InteriorResult {
+    const width = 6;
+    const height = 4;
+    const map: number[][] = [];
+
+    for (let y = 0; y < height; y++) {
+        const row: number[] = [];
+        for (let x = 0; x < width; x++) {
+            if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+                if (y === height - 1 && (x === 2 || x === 3)) {
+                    row.push(INTERIOR_TILES.DOOR);
+                } else {
+                    row.push(INTERIOR_TILES.WALL);
+                }
+            } else if (y === 1 && x === 4) {
+                row.push(INTERIOR_TILES.BASKET); // Egg collection point
+            } else {
+                row.push(INTERIOR_TILES.FLOOR);
+            }
+        }
+        map.push(row);
+    }
+
+    return { map, npcs: [] };
+}
+
+/**
+ * Generate Barn interior (8x4)
+ * Contains pail for milk collection
+ */
+export function generateBarnInterior(): InteriorResult {
+    const width = 8;
+    const height = 4;
+    const map: number[][] = [];
+
+    for (let y = 0; y < height; y++) {
+        const row: number[] = [];
+        for (let x = 0; x < width; x++) {
+            if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+                if (y === height - 1 && (x === 3 || x === 4)) {
+                    row.push(INTERIOR_TILES.DOOR);
+                } else {
+                    row.push(INTERIOR_TILES.WALL);
+                }
+            } else if (y === 1 && x === 6) {
+                row.push(INTERIOR_TILES.PAIL); // Milk collection point
+            } else {
+                row.push(INTERIOR_TILES.FLOOR);
+            }
+        }
+        map.push(row);
+    }
+
+    return { map, npcs: [] };
+}
+
+/**
  * Check if interior tile is solid
  */
 export function isInteriorSolid(tileType: number): boolean {
@@ -182,7 +244,9 @@ export function isInteriorSolid(tileType: number): boolean {
         tileType === INTERIOR_TILES.SHELF ||
         tileType === INTERIOR_TILES.TV ||
         tileType === INTERIOR_TILES.COUCH ||
-        tileType === INTERIOR_TILES.PLANT;
+        tileType === INTERIOR_TILES.PLANT ||
+        tileType === INTERIOR_TILES.BASKET ||
+        tileType === INTERIOR_TILES.PAIL;
     // CHAIR, RUG, FLOOR, DOOR are not solid
 }
 
@@ -202,6 +266,10 @@ export function getInteriorSpawn(interiorType: string): SpawnPoint {
             return { x: 8, y: 10 };
         case 'old_house':
             return { x: 6, y: 8 };
+        case 'coop':
+            return { x: 2, y: 2 };
+        case 'barn':
+            return { x: 3, y: 2 };
         default:
             return { x: 5, y: 5 };
     }
@@ -212,6 +280,8 @@ export default {
     generateHouseInterior,
     generateShopInterior,
     generateOldHouseInterior,
+    generateCoopInterior,
+    generateBarnInterior,
     isInteriorSolid,
     getInteriorSpawn
 };

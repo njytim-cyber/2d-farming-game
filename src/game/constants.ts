@@ -53,8 +53,8 @@ export const TILE_SIZE = 50;
 export const MOVEMENT_SPEED = 400; // Pixels per second
 
 // === Map ===
-export const MAP_WIDTH = 60;
-export const MAP_HEIGHT = 60;
+export const MAP_WIDTH = 40;
+export const MAP_HEIGHT = 40;
 
 // === Storage ===
 export const SAVE_KEY = 'farming_sim_rpg_v11';
@@ -114,6 +114,12 @@ export const SEASONS = ['Spring', 'Summer', 'Fall', 'Winter'];
 export const SEASON_ICONS = ['🌸', '☀️', '🍂', '❄️'];
 export const DAYS_PER_SEASON = 28;
 
+export const SHOP_TABS = [
+    { id: 'seeds', name: 'Seeds', icon: '🌱' },
+    { id: 'animals', name: 'Animals', icon: '🐄' },
+    { id: 'tools', name: 'Tools', icon: '⚒️' }
+];
+
 export const SEASON_COLORS: { [key: string]: { grass: string; tree: string } } = {
     Spring: { grass: PALETTE.grass, tree: PALETTE.leaf_dark },
     Summer: { grass: '#88bc7b', tree: '#46833b' },
@@ -137,7 +143,13 @@ export const TILES: TileMap = {
     OLD_HOUSE: 7, // 8x4 building
     TREE_OAK: 8,
     STONE_ORE: 9,
-    STONE_BOULDER: 10
+    STONE_BOULDER: 10,
+    COOP: 11,
+    BARN: 12,
+    CAVE: 13,
+    DUNGEON_FLOOR: 14,
+    DUNGEON_WALL: 15,
+    DUNGEON_STAIRS: 16
 };
 
 // === Interior Tile Types ===
@@ -155,7 +167,9 @@ export const INTERIOR_TILES: TileMap = {
     PLANT: 20,
     TV: 21,
     COUCH: 22,
-    CHAIR: 23
+    CHAIR: 23,
+    BASKET: 24,  // Egg collection
+    PAIL: 25     // Milk collection
 };
 
 // === Seeds & Crops ===
@@ -231,12 +245,28 @@ export const SEEDS: { [key: string]: CropConfig } = {
 
 // === Items ===
 export const ITEMS: { [key: string]: ItemConfig } = {
-    WOODEN_SWORD: { name: 'Wooden Sword', type: 'weapon', attack: 5, cost: 0, sell: 10 }
+    WOODEN_SWORD: { name: 'Wooden Sword', type: 'weapon', attack: 5, cost: 0, sell: 10 },
+    PICKAXE: { name: 'Pickaxe', type: 'tool', attack: 2, cost: 100, sell: 25 },
+    AXE: { name: 'Axe', type: 'tool', attack: 2, cost: 100, sell: 25 },
+    HOE: { name: 'Hoe', type: 'tool', attack: 1, cost: 50, sell: 15 },
+    EGG: { name: 'Egg', type: 'produce', attack: 0, cost: 0, sell: 50 },
+    MILK: { name: 'Milk', type: 'produce', attack: 0, cost: 0, sell: 125 }
 };
 
 // === NPCs ===
 export const NPC_IDS = {
-    OLD_MAN: 'old_man'
+    OLD_MAN: 'old_man',
+    SHOPKEEPER: 'shopkeeper',
+    CREEP: 'creep'
+};
+
+// === Creeps ===
+export const CREEP_TYPES = {
+    SLIME: { name: 'Slime', hp: 20, attack: 2, speed: 0.5, color: '#4caf50' },
+    BAT: { name: 'Bat', hp: 15, attack: 3, speed: 0.8, color: '#7e57c2' },
+    SKELETON: { name: 'Skeleton', hp: 35, attack: 5, speed: 0.4, color: '#eeeeee' },
+    GHOST: { name: 'Ghost', hp: 25, attack: 4, speed: 0.6, color: '#b2ebf2' },
+    BUG: { name: 'Cave Bug', hp: 10, attack: 1, speed: 1.0, color: '#ffa726' }
 };
 
 // === Resource Values ===

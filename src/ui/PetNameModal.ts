@@ -30,17 +30,20 @@ export class PetNameModal {
             <div class="modal-title">A stray dog appears!</div>
             <div style="font-size:40px; margin:20px;">🐕</div>
             <p style="color:#ccc; margin-bottom:20px;">It seems friendly. What will you call it?</p>
-            <input type="text" id="pet-name-input" class="cc-input" style="width:200px; font-size:20px; text-align:center; margin-bottom:20px;" placeholder="Name" maxlength="12">
+            <input type="text" id="pet-name-input" class="cc-input" style="width:200px; font-size:20px; text-align:center; margin-bottom:20px;" value="Fluffy" placeholder="Name" maxlength="12">
             <button id="btn-adopt" class="btn btn--start">Adopt</button>
         `;
 
         const input = document.getElementById('pet-name-input') as HTMLInputElement;
-        if (input) input.focus();
+        if (input) {
+            input.focus();
+            input.select(); // Select the text for easy renaming
+        }
 
         const btnAdopt = document.getElementById('btn-adopt');
         if (btnAdopt) {
             btnAdopt.onclick = () => {
-                const name = input ? (input.value.trim() || 'Dog') : 'Dog';
+                const name = input ? (input.value.trim() || 'Fluffy') : 'Fluffy';
                 overlay.classList.remove('modal-overlay--active');
                 this.onConfirm(name);
             };

@@ -132,6 +132,14 @@ body {
     background: var(--energy-medium);
 }
 
+/* ===== Health Bar ===== */
+.health-fill {
+    height: 100%;
+    background: #ef5350;
+    width: 100%;
+    transition: width var(--transition-smooth);
+}
+
 /* ===== Save Indicator ===== */
 .save-indicator {
     opacity: 0;
@@ -247,10 +255,19 @@ body {
 }
 
 /* ===== FAB Action Button ===== */
-.fab-action {
-    position: absolute;
+.fab-container {
+    position: fixed;
     bottom: 110px;
     right: var(--space-xl);
+    display: flex;
+    flex-direction: column-reverse;
+    /* Stack upward */
+    gap: var(--space-md);
+    pointer-events: none;
+    z-index: var(--z-fab);
+}
+
+.fab-action {
     width: 72px;
     height: 72px;
     border-radius: var(--radius-2xl);
@@ -329,6 +346,37 @@ body {
 }
 
 /* ===== Shop ===== */
+.shop-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.shop-tab {
+    padding: 8px 15px;
+    background: #333;
+    border: 1px solid #444;
+    border-radius: 8px;
+    color: #888;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.shop-tab:hover {
+    background: #444;
+    color: #ccc;
+}
+
+.shop-tab--active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
+}
+
 .shop-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -647,6 +695,24 @@ body {
     margin: 5px 0;
     font-size: 14px;
     color: #ccc;
+}
+
+/* ===== Drag and Drop ===== */
+.slot--dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    border-style: dashed;
+}
+
+.slot--drag-over {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 2px solid var(--accent) !important;
+    transform: scale(1.05);
+}
+
+.equipment-slot.slot--drag-over {
+    background: rgba(var(--accent-rgb), 0.3) !important;
+    box-shadow: 0 0 15px var(--accent);
 }
 
 /* ===== Tooltip ===== */

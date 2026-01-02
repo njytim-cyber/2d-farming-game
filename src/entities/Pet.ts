@@ -29,7 +29,7 @@ export class Pet {
         this.isMoving = false;
         this.facing = { x: 0, y: 1 };
 
-        this.name = 'Dog';
+        this.name = 'Fluffy';
         this.color = '#ffb74d'; // Orange/Brown default
 
         this.speed = 175; // Slower than player (400) but smooth

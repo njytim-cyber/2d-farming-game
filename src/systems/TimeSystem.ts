@@ -55,7 +55,7 @@ export class TimeSystem {
     get hour(): number {
         const progress = this.dayTime / this.dayLength;
         const totalHours = progress * DAY_DURATION_HOURS;
-        let currentHour = DAY_START_HOUR + totalHours;
+        const currentHour = DAY_START_HOUR + totalHours;
         return currentHour % 24;
     }
 

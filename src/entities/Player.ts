@@ -283,12 +283,41 @@ export class Player {
     /**
      * Draw the player character
      */
+    /**
+     * Draw the player character
+     */
     draw(ctx: CanvasRenderingContext2D, x: number, y: number) {
+        // Shadow (drawn before transform so it stays flat)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        ctx.beginPath();
+        ctx.ellipse(x, y + 18, 12, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const state = getState();
+        ctx.save();
+
+        // Squash and Stretch
+        let scaleX = 1;
+        let scaleY = 1;
+
+        if (state.screen === 'GAME' && this.isMoving) {
+            const time = Date.now() / 150;
+            const amount = 0.05; // 5% squash/stretch
+            scaleX = 1 + Math.sin(time) * amount;
+            scaleY = 1 - Math.sin(time) * amount;
+        }
+
+        // Translate to pivot (feet/center), scale, then translate back
+        // Drawing centers at (x, y) roughly, but sprite drawing uses drawX = x - 10, drawY = y - 15
+        ctx.translate(x, y + 15); // Pivot at feet
+        ctx.scale(scaleX, scaleY);
+        ctx.translate(-x, -(y + 15));
+
         const drawX = x - 10;
         const drawY = y - 15;
-        const state = getState();
         const bob = (state.screen === 'GAME' && this.isMoving)
-            ? Math.sin(Date.now() / 100) * 2
+            ? Math.sin(Date.now() / 100) * 2 // Keep the vertical bob too, or remove if squash is enough?
+            // Let's keep bob for "hopping" feel
             : 0;
 
         if (this.gender === 'female') {
@@ -397,9 +426,11 @@ export class Player {
         }
 
         // === SWORD ANIMATION ===
-        if (this.isAttacking && this.equipment && this.equipment.weapon) {
+        if (this.equipment && this.equipment.weapon && this.attackTimer > 0) {
             this.drawSwordSwing(ctx, drawX + 10, drawY + 15);
         }
+
+        ctx.restore();
     }
 
     /**
