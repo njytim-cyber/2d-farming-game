@@ -237,6 +237,16 @@ export class Game {
             this.inventory = new Inventory(state.inventory.slots, state.inventory.selected);
             this.timeSystem = new TimeSystem(state);
 
+            // Migration: Give starter tools if missing
+            if (!this.inventory.hasItem('PICKAXE')) {
+                this.inventory.addItem('PICKAXE', 1);
+                this.showToast('Received Starter Pickaxe!', '#29b6f6');
+            }
+            if (!this.inventory.hasItem('AXE')) {
+                this.inventory.addItem('AXE', 1);
+                this.showToast('Received Starter Axe!', '#29b6f6');
+            }
+
             // Re-create pet if exists in save
             if (state.pet) {
                 this.pet = new Pet(state.pet.gridX, state.pet.gridY);
