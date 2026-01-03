@@ -1,8 +1,3 @@
-/**
- * RenderingOrchestrator
- * Handles all game rendering logic extracted from Game.ts
- */
-
 import { TILE_SIZE, TILES, INTERIOR_TILES } from '../game/constants';
 import { getState, setState, GameState } from '../game/state';
 import { Game } from '../game/Game';
@@ -11,6 +6,7 @@ interface Light {
     x: number;
     y: number;
     radius: number;
+    color?: string;
 }
 
 export class RenderingOrchestrator {
@@ -41,7 +37,11 @@ export class RenderingOrchestrator {
         const state = getState();
         if (state.screen === 'CREATOR') return;
 
-        this.game.renderer.clear();
+        if (state.currentMap !== 'overworld') {
+            this.game.renderer.clear('#111'); // Dark void for interiors
+        } else {
+            this.game.renderer.clear('#121212'); // Standard dark grey for overworld
+        }
 
         // Update camera
         const currentMap = this.game.getCurrentMap(state);
@@ -76,15 +76,20 @@ export class RenderingOrchestrator {
         }
 
         // --- Pass 4: Global Illumination & Lighting ---
-        if (darkness > 0) {
-            this.drawLighting(state, camera, range, currentMap, mapWidth, mapHeight, darkness);
+        if (state.currentMap === 'overworld') {
+            if (darkness > 0) {
+                this.drawLighting(state, camera, range, currentMap, mapWidth, mapHeight, darkness);
+            }
+        } else {
+            // Indoor Lighting always applied
+            this.drawLighting(state, camera, range, currentMap, mapWidth, mapHeight, 0.3);
         }
 
         this.game.renderer.drawFacingIndicator();
         this.game.particleSystem.drawParticles(this.game.renderer.ctx);
 
-        if (this.game.timeSystem.weather === 'Rain' && state.currentMap === 'overworld') {
-            this.game.particleSystem.drawRain(this.game.renderer.ctx, this.game.timeSystem.season === 3);
+        if ((this.game.timeSystem.weather === 'Rain' || this.game.timeSystem.season === 0) && state.currentMap === 'overworld') {
+            this.game.particleSystem.drawWeather(this.game.renderer.ctx);
         }
 
         this.game.renderer.endWorldDraw();
@@ -99,10 +104,33 @@ export class RenderingOrchestrator {
             this.game.renderer.drawRainOverlay();
         }
 
+        // Golden Hour Overlay
+        const hour = this.game.timeSystem.hour;
+        if (state.currentMap === 'overworld' && (hour >= 5 && hour < 7 || hour >= 17 && hour < 19)) {
+            // Calculate opacity based on peak golden hour
+            let opacity = 0;
+            if (hour >= 5 && hour < 7) {
+                // Sunrise golden hour
+                opacity = 0.15; // Max opacity
+            } else {
+                // Sunset golden hour
+                opacity = 0.15;
+            }
+            this.game.renderer.drawOverlay('rgba(255, 160, 0)', opacity);
+        } else if (state.currentMap !== 'overworld') {
+            // Indoor Warmth Force
+            this.game.renderer.drawOverlay('#FFB74D', 0.1);
+        }
+
         // Draw vignette for visual polish
         this.drawVignette();
 
         this.game.renderer.drawMessages(state.messages);
+
+        // Update Minimap
+        if (this.game.minimap) {
+            this.game.minimap.draw(state);
+        }
     }
 
     /**
@@ -162,6 +190,9 @@ export class RenderingOrchestrator {
         mapWidth: number,
         mapHeight: number
     ) {
+        const time = performance.now() / 1000;
+        const bobOffset = Math.sin(time * 3) * 2; // subtle +/- 2px bob
+
         for (let y = range.startY; y < range.endY; y++) {
             // 1. Standing Tiles for this row
             for (let x = range.startX; x < range.endX; x++) {
@@ -196,7 +227,8 @@ export class RenderingOrchestrator {
                     if (npc.type === 'creep') return;
                     const npcBottomY = (npc.y + 1) * TILE_SIZE;
                     if (npcBottomY > rowTopY && npcBottomY <= rowBottomY) {
-                        this.game.tileRenderer.drawNPC(this.game.renderer.ctx, npc.x * TILE_SIZE, npc.y * TILE_SIZE, npc);
+                        // Apply bobbing to NPCs as well
+                        this.game.tileRenderer.drawNPC(this.game.renderer.ctx, npc.x * TILE_SIZE, npc.y * TILE_SIZE + bobOffset, npc);
                     }
                 });
             }
@@ -206,7 +238,8 @@ export class RenderingOrchestrator {
                 this.game.creeps.forEach((creep: any) => {
                     const creepBottomY = creep.visY + TILE_SIZE;
                     if (creepBottomY > rowTopY && creepBottomY <= rowBottomY) {
-                        this.game.tileRenderer.drawNPC(this.game.renderer.ctx, creep.visX, creep.visY, creep);
+                        // Apply bobbing to creeps
+                        this.game.tileRenderer.drawNPC(this.game.renderer.ctx, creep.visX, creep.visY + bobOffset, creep);
                     }
                 });
             }
@@ -215,7 +248,17 @@ export class RenderingOrchestrator {
             if (this.game.pet && state.currentMap === 'overworld') {
                 const petBottomY = this.game.pet.visY + TILE_SIZE;
                 if (petBottomY > rowTopY && petBottomY <= rowBottomY) {
-                    this.game.pet.draw(this.game.renderer.ctx, this.game.pet.visX + TILE_SIZE / 2, this.game.pet.visY + TILE_SIZE / 2);
+                    // Draw pet shadow
+                    this.game.renderer.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    this.game.renderer.ctx.beginPath();
+                    this.game.renderer.ctx.ellipse(
+                        this.game.pet.visX + TILE_SIZE / 2,
+                        this.game.pet.visY + TILE_SIZE - 5,
+                        10, 5, 0, 0, Math.PI * 2
+                    );
+                    this.game.renderer.ctx.fill();
+                    // Draw pet with bob
+                    this.game.pet.draw(this.game.renderer.ctx, this.game.pet.visX + TILE_SIZE / 2, this.game.pet.visY + TILE_SIZE / 2 + bobOffset);
                 }
             }
 
@@ -223,7 +266,17 @@ export class RenderingOrchestrator {
             if (this.game.player) {
                 const playerBottomY = this.game.player.visY + TILE_SIZE;
                 if (playerBottomY > rowTopY && playerBottomY <= rowBottomY) {
-                    this.game.player.draw(this.game.renderer.ctx, this.game.player.visX + TILE_SIZE / 2, this.game.player.visY + TILE_SIZE / 2);
+                    // Draw player shadow
+                    this.game.renderer.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    this.game.renderer.ctx.beginPath();
+                    this.game.renderer.ctx.ellipse(
+                        this.game.player.visX + TILE_SIZE / 2,
+                        this.game.player.visY + TILE_SIZE - 5,
+                        12, 6, 0, 0, Math.PI * 2
+                    );
+                    this.game.renderer.ctx.fill();
+                    // Draw player with bob
+                    this.game.player.draw(this.game.renderer.ctx, this.game.player.visX + TILE_SIZE / 2, this.game.player.visY + TILE_SIZE / 2 + bobOffset);
                 }
             }
         }
@@ -275,8 +328,138 @@ export class RenderingOrchestrator {
                     }
                 }
             }
+        } else {
+            // Interior Lighting
+            this.drawInteriorAtmosphere(state, camera, range, currentMap, mapWidth, mapHeight);
         }
 
         this.game.renderer.drawLightingOverlay(darkness, lights);
+    }
+
+    /**
+     * Draw interior specific atmosphere (SSAO, God Rays, Point Lights)
+     */
+    private drawInteriorAtmosphere(
+        state: GameState,
+        camera: { x: number; y: number },
+        range: { startX: number; startY: number; endX: number; endY: number },
+        currentMap: number[][],
+        mapWidth: number,
+        mapHeight: number
+    ) {
+        const ctx = this.game.renderer.ctx;
+        const view = this.game.renderer.getViewSize(state.zoom);
+
+        // 1. SSAO (Corner Vignettes)
+        const cornerSize = 300 * state.zoom;
+        const corners = [
+            { x: 0, y: 0 },
+            { x: view.width, y: 0 },
+            { x: 0, y: view.height },
+            { x: view.width, y: view.height }
+        ];
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Screen space
+
+        corners.forEach(corner => {
+            const grad = ctx.createRadialGradient(corner.x, corner.y, 0, corner.x, corner.y, cornerSize);
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0.4)'); // Dark corners
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(corner.x, corner.y, cornerSize, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.restore();
+
+        // 2. God Rays (Window Light)
+        const time = performance.now();
+        const flicker = Math.sin(time / 2000) * 0.1 + 0.9;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+
+        const rayStartX = -50;
+        const rayStartY = 100;
+        const rayLen = 400;
+        const rayWidthStart = 100;
+        const rayWidthEnd = 300;
+        const angle = Math.PI / 6;
+
+        ctx.translate(-camera.x * state.zoom, -camera.y * state.zoom);
+        ctx.scale(state.zoom, state.zoom);
+
+        const grad = ctx.createLinearGradient(rayStartX, rayStartY, rayStartX + rayLen, rayStartY + rayLen * Math.tan(angle));
+        grad.addColorStop(0, `rgba(255, 255, 200, ${0.15 * flicker})`);
+        grad.addColorStop(1, 'rgba(255, 255, 200, 0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(rayStartX, rayStartY);
+        ctx.lineTo(rayStartX + rayLen, rayStartY + rayLen * Math.tan(angle) - rayWidthEnd / 2);
+        ctx.lineTo(rayStartX + rayLen, rayStartY + rayLen * Math.tan(angle) + rayWidthEnd / 2);
+        ctx.lineTo(rayStartX, rayStartY + rayWidthStart);
+        ctx.fill();
+
+        ctx.restore();
+
+        // 3. Point Lights (Stove, Door) & Particles
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+
+        // Random Motes
+        if (Math.random() < 0.1) {
+            const mx = (camera.x + Math.random() * view.width / state.zoom);
+            const my = (camera.y + Math.random() * view.height / state.zoom);
+            this.game.particleSystem.createMote(mx, my);
+        }
+
+        for (let y = range.startY; y < range.endY; y++) {
+            for (let x = range.startX; x < range.endX; x++) {
+                if (x < 0 || x >= mapWidth || y < 0 || y >= mapHeight) continue;
+                const tile = currentMap[y][x];
+
+                if (tile === INTERIOR_TILES.STOVE) {
+                    const px = (x * TILE_SIZE - camera.x) * state.zoom;
+                    const py = (y * TILE_SIZE - camera.y) * state.zoom;
+                    const cx = px + (TILE_SIZE / 2) * state.zoom;
+                    const cy = py + (TILE_SIZE / 2) * state.zoom;
+
+                    const pulse = Math.sin(time / 200) * 0.05 + 0.95;
+                    const radius = 80 * state.zoom * pulse;
+
+                    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+                    g.addColorStop(0, 'rgba(255, 100, 0, 0.4)');
+                    g.addColorStop(1, 'rgba(255, 100, 0, 0)');
+
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Spawn Steam
+                    if (Math.random() < 0.05) {
+                        this.game.particleSystem.createSteam(x * TILE_SIZE + TILE_SIZE / 2, y * TILE_SIZE);
+                    }
+                } else if (tile === INTERIOR_TILES.DOOR) {
+                    const px = (x * TILE_SIZE - camera.x) * state.zoom;
+                    const py = (y * TILE_SIZE - camera.y) * state.zoom;
+                    const cx = px + (TILE_SIZE / 2) * state.zoom;
+                    const cy = py + (TILE_SIZE / 2) * state.zoom;
+
+                    const radius = 60 * state.zoom;
+                    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+                    g.addColorStop(0, 'rgba(200, 200, 255, 0.2)');
+                    g.addColorStop(1, 'rgba(200, 200, 255, 0)');
+
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        ctx.restore();
     }
 }

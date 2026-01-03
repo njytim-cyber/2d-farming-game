@@ -4,8 +4,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Inventory } from '../../src/systems/Inventory';
 import { TimeSystem } from '../../src/systems/TimeSystem';
-import { generateMap, isSolid, getTile, setTile } from '../../src/systems/MapGenerator';
-import { TILES, MAP_WIDTH, MAP_HEIGHT, SEEDS } from '../../src/game/constants';
+import { generateMap, isSolid, getTile, setTile, generateEastMap } from '../../src/systems/MapGenerator';
+import { TILES, MAP_WIDTH, MAP_HEIGHT, SEEDS, INVENTORY_SIZE } from '../../src/game/constants';
 import { Player } from '../../src/entities/Player';
 import { Crop } from '../../src/entities/Crop';
 
@@ -17,7 +17,7 @@ describe('Inventory System', () => {
     });
 
     it('should initialize with empty slots', () => {
-        expect(inventory.slots.length).toBe(20);
+        expect(inventory.slots.length).toBe(INVENTORY_SIZE);
         expect(inventory.slots.every(s => s === null)).toBe(true);
     });
 
@@ -149,26 +149,20 @@ describe('MapGenerator', () => {
         expect(map[0].length).toBe(MAP_WIDTH);
     });
 
-    it('should place house as 2x2', () => {
-        const cx = Math.floor(MAP_WIDTH / 2);
-        const cy = Math.floor(MAP_HEIGHT / 2);
-
-        // Check all 4 tiles of house
-        expect(map[cy - 3][cx - 4]).toBe(TILES.HOUSE);
-        expect(map[cy - 3][cx - 3]).toBe(TILES.HOUSE);
-        expect(map[cy - 2][cx - 4]).toBe(TILES.HOUSE);
-        expect(map[cy - 2][cx - 3]).toBe(TILES.HOUSE);
+    it('should place house as 3x3', () => {
+        // House logic in MapGenerator: x: 18-20, y: 10-12
+        expect(map[10][18]).toBe(TILES.HOUSE);
+        expect(map[10][20]).toBe(TILES.HOUSE);
+        expect(map[12][18]).toBe(TILES.HOUSE);
+        expect(map[12][20]).toBe(TILES.HOUSE);
     });
 
-    it('should place shop as 2x2', () => {
-        const cx = Math.floor(MAP_WIDTH / 2);
-        const cy = Math.floor(MAP_HEIGHT / 2);
-
-        // Check all 4 tiles of shop
-        expect(map[cy - 3][cx + 2]).toBe(TILES.SHOP);
-        expect(map[cy - 3][cx + 3]).toBe(TILES.SHOP);
-        expect(map[cy - 2][cx + 2]).toBe(TILES.SHOP);
-        expect(map[cy - 2][cx + 3]).toBe(TILES.SHOP);
+    it('should place shop as 3x3', () => {
+        // Shop logic in MapGenerator: x: 25-27, y: 10-12
+        expect(map[10][25]).toBe(TILES.SHOP);
+        expect(map[10][27]).toBe(TILES.SHOP);
+        expect(map[12][25]).toBe(TILES.SHOP);
+        expect(map[12][27]).toBe(TILES.SHOP);
     });
 
     it('should clear area around spawn', () => {
@@ -180,11 +174,8 @@ describe('MapGenerator', () => {
     });
 
     it('isSolid should return true for buildings', () => {
-        const cx = Math.floor(MAP_WIDTH / 2);
-        const cy = Math.floor(MAP_HEIGHT / 2);
-
-        expect(isSolid(map, cx - 4, cy - 3)).toBe(true); // House
-        expect(isSolid(map, cx + 2, cy - 3)).toBe(true); // Shop
+        expect(isSolid(map, 18, 10)).toBe(true); // House
+        expect(isSolid(map, 25, 10)).toBe(true); // Shop
     });
 
     it('isSolid should return true for trees and stones', () => {
@@ -215,6 +206,14 @@ describe('MapGenerator', () => {
     it('setTile should modify map', () => {
         setTile(map, 10, 10, TILES.SOIL);
         expect(map[10][10]).toBe(TILES.SOIL);
+    });
+
+    it('should place Tailor and Guild in east map', () => {
+        const { map: eastMap } = generateEastMap();
+        // Tailor at 6, 26
+        expect(eastMap[26][6]).toBe(TILES.TAILOR);
+        // Guild at 35, 24
+        expect(eastMap[24][35]).toBe(TILES.GUILD);
     });
 });
 

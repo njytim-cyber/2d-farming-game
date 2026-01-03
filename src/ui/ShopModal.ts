@@ -3,7 +3,7 @@
  * Handles shop buying and selling UI
  */
 
-import { SEEDS, SHOP_TABS } from '../game/constants';
+import { SEEDS, SHOP_TABS, ITEMS } from '../game/constants';
 import { Inventory } from '../systems/Inventory';
 import { ANIMAL_TYPES } from '../entities/Animals';
 
@@ -56,8 +56,9 @@ export class ShopModal {
     /**
      * Show the shop modal
      */
-    show(inventory: Inventory, currentSeason: number = 0) {
+    show(inventory: Inventory, currentSeason: number = 0, initialTab: string = 'seeds') {
         this.currentSeason = currentSeason;
+        this.activeTab = initialTab;
         this.uiManager.setShopVisible(true);
         this.render(inventory);
     }
@@ -85,15 +86,20 @@ export class ShopModal {
             items = SEEDS;
         } else if (this.activeTab === 'animals') {
             items = ANIMAL_TYPES;
+        } else if (this.activeTab === 'guild') {
+            // Filter ITEMS for weapons/potions
+            items = {};
+            for (const [key, val] of Object.entries(ITEMS)) {
+                if (val.type === 'weapon' || val.type === 'consumable') {
+                    items[key] = val;
+                }
+            }
         }
 
         this.uiManager.renderShop(items, this.activeTab, this.currentSeason, (id: string) => {
-            if (this.activeTab === 'seeds') {
+            if (this.activeTab === 'seeds' || this.activeTab === 'guild' || this.activeTab === 'tools') {
                 this.gameCallbacks.onBuy(id);
             } else if (this.activeTab === 'animals') {
-                // For now, buyAnimal could be a different callback or we handle it in onBuy
-                // The prompt says "split the shop items by tab"
-                // I'll assume onBuy can handle animal ids too or I'll need to update Game.ts
                 this.gameCallbacks.onBuy(id);
             }
             this.render(inventory);

@@ -31,6 +31,7 @@ export function saveGame(): boolean {
 
         return true;
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Failed to save game:', error);
         return false;
     }
@@ -75,6 +76,7 @@ export function loadGame(): boolean {
         replaceState(mergedState);
         return true;
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error('Failed to load game:', error);
         return false;
     }

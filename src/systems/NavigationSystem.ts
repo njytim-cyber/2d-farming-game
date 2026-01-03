@@ -128,6 +128,10 @@ export class NavigationSystem {
                 this.game.transitionToMap('overworld_north', newX, mapHeight - 1);
             } else if (state.currentMap === 'overworld_north' && newY >= mapHeight) {
                 this.game.transitionToMap('overworld', newX, 0);
+            } else if (state.currentMap === 'overworld' && newX >= mapWidth) {
+                this.game.transitionToMap('overworld_east', 0, newY);
+            } else if (state.currentMap === 'overworld_east' && newX < 0) {
+                this.game.transitionToMap('overworld', mapWidth - 1, newY);
             }
         }
     }

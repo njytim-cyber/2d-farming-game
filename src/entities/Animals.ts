@@ -301,6 +301,12 @@ export function drawAnimal(ctx: CanvasRenderingContext2D, animal: Animal) {
     const x = animal.visX + (TILE_SIZE - size) / 2;
     const y = animal.visY + (TILE_SIZE - size) / 2;
 
+    // Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.beginPath();
+    ctx.ellipse(x + size / 2, y + size * 0.9, size / 2.5, size / 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
     // Body
     ctx.fillStyle = def.color;
     ctx.beginPath();

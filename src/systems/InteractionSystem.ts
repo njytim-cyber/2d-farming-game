@@ -55,7 +55,12 @@ export class InteractionSystem {
         // --- Interior Interactions ---
         if (state.currentMap !== 'overworld') {
             if (tile === INTERIOR_TILES.DOOR) { this.exitHouse(); return; }
-            if (tile === INTERIOR_TILES.BED) { this.game.sleep(); return; }
+            if (tile === INTERIOR_TILES.BED) {
+                this.game.uiManager.showChoice('Sleep and start a new day?', (confirmed) => {
+                    if (confirmed) this.game.sleep();
+                });
+                return;
+            }
             if (tile === INTERIOR_TILES.STOVE) {
                 if (this.game.cookingModal && this.game.inventory) this.game.cookingModal.show(this.game.inventory);
                 return;
@@ -125,6 +130,56 @@ export class InteractionSystem {
         if (tile === TILES.COOP) { this.enterBuilding('coop'); return; }
         if (tile === TILES.BARN) { this.enterBuilding('barn'); return; }
         if (tile === TILES.CAVE) { this.enterCave(); return; }
+
+        // Town Buildings
+        if (tile === TILES.TAVERN) {
+            this.game.uiManager.showChoice("Buy Spiced Ale (50g)?\nRestores Energy.", (confirmed) => {
+                if (confirmed) this.buyItem(50, 'energy', 50);
+            });
+            return;
+        }
+        if (tile === TILES.LIBRARY) {
+            const tips = [
+                "Crops grow faster if you water them every day.",
+                "The Blacksmith can upgrade your tools if you bring him ore.",
+                "Different crops grow in different seasons.",
+                "Monsters come out at night. Be careful!",
+                "You can sell your crops at the shop for gold."
+            ];
+            const randomTip = tips[Math.floor(Math.random() * tips.length)];
+            this.game.uiManager.showDialogue(`Library Book says: "${randomTip}"`, () => { });
+            return;
+        }
+        if (tile === TILES.SCHOOL) { this.game.uiManager.showDialogue("School is in session.", () => { }); return; }
+        if (tile === TILES.CLINIC) {
+            this.game.uiManager.showChoice("Heal Wounds (100g)?\nRestores Health.", (confirmed) => {
+                if (confirmed) this.buyItem(100, 'hp', 100);
+            });
+            return;
+        }
+        if (tile === TILES.BLACKSMITH) { this.game.uiManager.showDialogue("Clang! Clang! The blacksmith is hard at work.", () => { }); return; }
+        if (tile === TILES.MAYOR_HOUSE) { this.game.uiManager.showDialogue("Mayor's Office. No appointments available.", () => { }); return; }
+        if (tile === TILES.CHURCH) { this.game.uiManager.showDialogue("A peaceful place.", () => { }); return; }
+        if (tile === TILES.TOWN_HOUSE) { this.game.uiManager.showDialogue("This house is locked.", () => { }); return; }
+
+        // Phase 1 Interactions
+        if (tile === TILES.TAILOR) {
+            if (this.game.creatorModal && this.game.player) {
+                this.game.creatorModal.showTailorMode(this.game.player);
+            }
+            return;
+        }
+        if (tile === TILES.GUILD) {
+            this.game.uiManager.showChoice("Enter Adventurer's Guild?", (confirmed) => {
+                if (confirmed) {
+                    setState({ screen: 'SHOP' });
+                    if (this.game.shopModal && this.game.inventory && this.game.timeSystem) {
+                        this.game.shopModal.show(this.game.inventory, this.game.timeSystem.season, 'guild');
+                    }
+                }
+            });
+            return;
+        }
 
         // Harvest Crop (always possible if mature)
         if (state.crops[key] && state.crops[key].stage >= 100) {
@@ -507,6 +562,40 @@ export class InteractionSystem {
             this.game.transitionToMap('overworld_north', state.lastOverworldPos.x, state.lastOverworldPos.y + 1);
         } else {
             this.game.transitionToMap('overworld_north', 20, 10);
+        }
+    }
+
+    /**
+     * Generic method to buy services/items
+     */
+    buyItem(cost: number, type: 'hp' | 'energy', amount: number) {
+        const state = getState();
+        if (state.money >= cost) {
+            state.money -= cost;
+
+            if (type === 'energy' && this.game.timeSystem) {
+                this.game.timeSystem.energy = Math.min(this.game.timeSystem.maxEnergy, this.game.timeSystem.energy + amount);
+                this.game.showToast(`Restored ${amount} Energy!`, '#4caf50');
+            } else if (type === 'hp' && this.game.player) {
+                // Assuming direct HP modification or verify Player.heal exists
+                this.game.player.hp = Math.min(this.game.player.maxHp, this.game.player.hp + amount);
+                this.game.showToast(`Healed ${amount} HP!`, '#ef5350');
+            }
+
+            this.game.uiManager.updateStats({
+                money: state.money,
+                day: state.dayCount,
+                season: state.season,
+                weather: this.game.timeSystem?.weather || 'sunny',
+                energy: this.game.timeSystem?.energy || 100,
+                maxEnergy: this.game.timeSystem?.maxEnergy || 100,
+                timeString: this.game.timeSystem?.getTimeString() || '06:00',
+                hp: this.game.player?.hp || 100,
+                maxHp: this.game.player?.maxHp || 100
+            });
+            saveGame();
+        } else {
+            this.game.showToast("Not enough Gold!", '#e53935');
         }
     }
 }

@@ -39,6 +39,7 @@ export default [
                 Map: 'readonly',
                 Set: 'readonly',
                 Promise: 'readonly',
+                WheelEvent: 'readonly',
             }
         },
         plugins: {

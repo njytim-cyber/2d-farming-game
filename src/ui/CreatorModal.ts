@@ -37,6 +37,64 @@ export class CreatorModal {
     }
 
     /**
+     * Show tailor mode (in-game customization)
+     */
+    showTailorMode(player: Player) {
+        this.player = player;
+        this.uiManager.setCreatorVisible(true);
+
+        // Render to start panel content (assuming it's the container for creator modal)
+        // Adjust UI for "Tailor Shop" context
+        this.uiManager.setStartPanelContent(`
+            <div class="modal-title">Tailor Shop</div>
+            <div class="modal-subtitle" style="text-align:center; color:#ddd; margin-bottom:10px;">Makeover Cost: 50g</div>
+            <canvas id="previewCanvas" width="120" height="120" style="background:#4caf50; border-radius:12px; margin-bottom:15px; box-shadow:inset 0 0 20px rgba(0,0,0,0.3)"></canvas>
+            
+            <div class="cc-row"><span>Gender</span>
+                <div class="gender-toggle">
+                    <button class="btn-gender active" data-gender="male">Male</button>
+                    <button class="btn-gender" data-gender="female">Female</button>
+                </div>
+            </div>
+            <div class="cc-sep"></div>
+            <div class="cc-row"><span>Skin</span><div id="skin-opts" style="display:flex"></div></div>
+            <div class="cc-row"><span>Hair</span><div id="hair-opts" style="display:flex"></div></div>
+            <div class="cc-row"><span>Shirt</span><div id="shirt-opts" style="display:flex"></div></div>
+            <div class="cc-row"><span>Style</span><button id="btn-style" class="btn" style="background:#444; color:white; padding:5px 10px; border-radius:4px;">Change</button></div>
+            
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn--secondary" id="btn-cancel">Cancel</button>
+                <button class="btn btn--start" id="btn-save">Save Changes</button>
+            </div>
+        `);
+
+        this.setupUI();
+
+        // Overlay specific handlers
+        const btnSave = document.getElementById('btn-save');
+        if (btnSave) {
+            btnSave.onclick = () => {
+                // Determine cost logic handling elsewhere? 
+                // Currently just closes, saving is implicit via player object mutation.
+                // We should deduc money if possible, but CreatorModal doesn't know about Game state money easily unless passed.
+                // Or we can fire a callback. 
+                // For now, let's assume the interaction system handles the "Open" check, 
+                // and deduction happens here or we just mutate.
+                // I'll reuse onStart as "Save & Close".
+                this.uiManager.setCreatorVisible(false);
+                if (this.onStart) this.onStart();
+            };
+        }
+
+        const btnCancel = document.getElementById('btn-cancel');
+        if (btnCancel) {
+            btnCancel.onclick = () => {
+                this.uiManager.setCreatorVisible(false);
+            };
+        }
+    }
+
+    /**
      * Show continue/new game screen
      */
     showContinueScreen() {

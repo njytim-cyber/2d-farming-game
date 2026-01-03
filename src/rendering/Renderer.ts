@@ -117,8 +117,8 @@ export class Renderer {
     /**
      * Clear the canvas
      */
-    clear() {
-        this.ctx.fillStyle = '#121212';
+    clear(color: string = '#121212') {
+        this.ctx.fillStyle = color;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
@@ -201,6 +201,17 @@ export class Renderer {
         this.ctx.globalCompositeOperation = 'multiply';
         this.ctx.drawImage(this.lightingCanvas, 0, 0);
         this.ctx.globalCompositeOperation = 'source-over';
+    }
+
+    /**
+     * Draw a solid color overlay with opacity
+     */
+    drawOverlay(color: string, opacity: number) {
+        this.ctx.save();
+        this.ctx.globalAlpha = opacity;
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.restore();
     }
 
     /**

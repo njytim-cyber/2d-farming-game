@@ -16,6 +16,7 @@ This document helps route natural language requests to the appropriate workflow.
 | "debug", "fix", "broken", "error", "not working", "bug" | `/debug` |
 | "run", "start", "play", "dev", "launch" | `/run` |
 | "deploy", "publish", "ship", "release" | `/deploy` |
+| "visual", "graphics", "polish", "lighting", "interior", "decor" | `/visual-polish` |
 
 ## Workflow Descriptions
 
@@ -48,6 +49,11 @@ This document helps route natural language requests to the appropriate workflow.
 **Purpose**: Deploy to production (Netlify).
 **Output**: Live URL.
 **Use when**: Ready to publish changes.
+
+### /visual-polish
+**Purpose**: Enhance the visual quality of game scenes (Lighting, Flooring, Depth, VFX).
+**Output**: Code changes for rendering systems and shaders.
+**Use when**: User requests better graphics, atmosphere, or visual overhaul.
 
 ## Chaining Workflows
 

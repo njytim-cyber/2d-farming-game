@@ -6,15 +6,13 @@
 import { Inventory } from '../systems/Inventory';
 import { EquipmentModal } from './EquipmentModal';
 import { DialogueModal } from './DialogueModal';
-import { SEASONS, SEASON_ICONS } from '../game/constants';
+import { SEASON_ICONS } from '../game/constants';
 import { Player } from '../entities/Player';
 
 interface UIElements {
     inventoryScroll: HTMLElement | null;
     energyText: HTMLElement | null;
     energyBar: HTMLElement | null;
-    seasonIcon: HTMLElement | null;
-    seasonName: HTMLElement | null;
     time: HTMLElement | null;
     timeIcon: HTMLElement | null;
     money: HTMLElement | null;
@@ -29,6 +27,7 @@ interface UIElements {
     healthText: HTMLElement | null;
     healthBar: HTMLElement | null;
     shopTabs: HTMLElement | null;
+    minimapCanvas: HTMLCanvasElement | null;
 }
 
 interface GameStats {
@@ -61,8 +60,6 @@ export class UIManager {
             inventoryScroll: document.getElementById('inventory-scroll'),
             energyText: document.getElementById('ui-energy-text'),
             energyBar: document.getElementById('ui-energy-bar'),
-            seasonIcon: document.getElementById('ui-season-icon'),
-            seasonName: document.getElementById('ui-season-name'),
             time: document.getElementById('ui-time'),
             timeIcon: document.getElementById('ui-time-icon'),
             money: document.getElementById('ui-money'),
@@ -79,7 +76,8 @@ export class UIManager {
             // Health Stats
             healthText: document.getElementById('ui-health-text'),
             healthBar: document.getElementById('ui-health-bar'),
-            shopTabs: document.getElementById('shop-tabs')
+            shopTabs: document.getElementById('shop-tabs'),
+            minimapCanvas: document.getElementById('minimap-canvas') as HTMLCanvasElement
         };
 
         this.onSlotSelectCallback = null;
@@ -276,7 +274,7 @@ export class UIManager {
     /**
      * Update stats display (Optimized)
      */
-    updateStats({ money, day, season, weather, energy, maxEnergy, timeString, hp, maxHp }: GameStats) {
+    updateStats({ money, day, season: _season, weather: _weather, energy, maxEnergy, timeString, hp, maxHp }: GameStats) {
         if (!this.lastStats) this.lastStats = {};
 
         if (this.lastStats.money !== money) {
@@ -287,15 +285,6 @@ export class UIManager {
         if (this.lastStats.day !== day) {
             if (this.elements.day) this.elements.day.innerText = day.toString();
             this.lastStats.day = day;
-        }
-
-        if (this.lastStats.season !== season) {
-            if (this.elements.seasonName) this.elements.seasonName.innerText = SEASONS[season] || '';
-            if (this.elements.seasonIcon) {
-                const weatherIcon = weather === 'Rain' ? (season === 3 ? '🌨️' : '🌧️') : '';
-                this.elements.seasonIcon.innerText = (SEASON_ICONS[season] || '') + weatherIcon;
-            }
-            this.lastStats.season = season;
         }
 
         if (this.lastStats.timeString !== timeString) {
@@ -323,14 +312,39 @@ export class UIManager {
         if ((this.lastStats.hp !== hp || this.lastStats.maxHp !== maxHp) && hp !== undefined) {
             const mHp = maxHp || 100;
             if (this.elements.healthText) this.elements.healthText.innerText = `${hp}/${mHp}`;
-            if (this.elements.healthBar) this.elements.healthBar.style.width = `${(hp / mHp) * 100}%`;
+
+            if (this.elements.healthBar) {
+                this.elements.healthBar.style.width = `${(hp / mHp) * 100}%`;
+
+                // Color logic
+                if (hp < mHp * 0.3) {
+                    this.elements.healthBar.style.backgroundColor = '#ef5350'; // Red
+                    this.elements.healthBar.classList.add('pulse');
+                } else if (hp < mHp * 0.6) {
+                    this.elements.healthBar.style.backgroundColor = '#ffa726'; // Orange
+                    this.elements.healthBar.classList.remove('pulse');
+                } else {
+                    this.elements.healthBar.style.backgroundColor = '#66bb6a'; // Green
+                    this.elements.healthBar.classList.remove('pulse');
+                }
+            }
             this.lastStats.hp = hp;
             this.lastStats.maxHp = maxHp;
+        }
+
+        // Energy Pulse update (hooking into existing energy block)
+        if (this.elements.energyBar) {
+            if (energy < 20) this.elements.energyBar.classList.add('pulse');
+            else this.elements.energyBar.classList.remove('pulse');
         }
     }
 
     showDialogue(text: string, callback: () => void) {
         this.dialogueModal.show(text, callback);
+    }
+
+    showChoice(text: string, callback: (confirmed: boolean) => void) {
+        this.dialogueModal.showChoice(text, callback);
     }
 
     /**

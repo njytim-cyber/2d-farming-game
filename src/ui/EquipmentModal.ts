@@ -73,6 +73,7 @@ export class EquipmentModal {
         content.querySelectorAll('.equipment-slot').forEach(slot => {
             const slotEl = slot as HTMLElement;
             slotEl.onclick = () => {
+                // eslint-disable-next-line no-console
                 console.log('Clicked slot:', slotEl.dataset.slot);
             };
 

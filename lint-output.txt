@@ -1,0 +1,37 @@
+
+> 2d-farming-game@1.0.0 lint
+> eslint src/
+
+
+C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\src\input\InputManager.ts
+   29:21  error  'WheelEvent' is not defined  no-undef
+  256:20  error  'WheelEvent' is not defined  no-undef
+
+C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\src\rendering\TileRenderer.ts
+  160:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  161:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  164:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  169:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  170:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  173:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  178:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  179:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  182:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  965:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  968:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  969:17  error  Unexpected lexical declaration in case block  no-case-declarations
+  972:17  error  Unexpected lexical declaration in case block  no-case-declarations
+
+C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\src\systems\SaveManager.ts
+  34:9  warning  Unexpected console statement  no-console
+  78:9  warning  Unexpected console statement  no-console
+
+C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\src\ui\EquipmentModal.ts
+  76:17  warning  Unexpected console statement  no-console
+
+C:\Users\njyti\Desktop\Google-Antigravity\2d-farming-game\src\ui\UIManager.ts
+  275:31  warning  'season' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+  275:39  warning  'weather' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+Γ£û 20 problems (15 errors, 5 warnings)
+

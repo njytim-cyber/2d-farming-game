@@ -13,7 +13,7 @@ import {
     GAME_VERSION
 } from './constants';
 import { getState, setState, GameState } from './state';
-import { generateMap, generateNorthMap, isSolid, setTile } from '../systems/MapGenerator';
+import { generateMap, generateNorthMap, generateEastMap, isSolid, setTile } from '../systems/MapGenerator';
 import { isInteriorSolid } from '../systems/InteriorMaps';
 import { saveGame, loadGame, hasSave, startAutoSave, onSave, resetGame } from '../systems/SaveManager';
 import { Inventory } from '../systems/Inventory';
@@ -37,6 +37,7 @@ import { CONSUMABLES } from '../systems/Recipes';
 import { ANIMAL_TYPES, Animal } from '../entities/Animals';
 import { BUILDING_TYPES } from '../systems/Buildings';
 import { WhatsNewModal } from '../ui/WhatsNewModal';
+import { Minimap } from '../ui/Minimap';
 
 export class Game {
     canvas: HTMLCanvasElement | null;
@@ -57,6 +58,7 @@ export class Game {
     shopModal: ShopModal | null;
     cookingModal: CookingModal | null;
     buildModal: BuildModal | null;
+    minimap: Minimap | null;
 
     isRunning: boolean;
     bufferedMove: { dx: number; dy: number } | null;
@@ -84,6 +86,7 @@ export class Game {
         this.shopModal = null;
         this.cookingModal = null;
         this.buildModal = null;
+        this.minimap = null;
 
         this.isRunning = false;
         this.bufferedMove = null;
@@ -135,6 +138,11 @@ export class Game {
                 onClose: () => setState({ screen: 'GAME' }),
                 showToast: (msg, color) => this.showToast(msg, color)
             }, this.canvas);
+        }
+
+        // Setup Minimap
+        if (this.uiManager.elements.minimapCanvas) {
+            this.minimap = new Minimap(this.uiManager.elements.minimapCanvas);
         }
 
         // Initialize with state
@@ -320,6 +328,7 @@ export class Game {
     startNewGame() {
         const { map: homeMap, npcs: homeNpcs } = generateMap();
         const { map: northMap, npcs: northNpcs } = generateNorthMap();
+        const { map: eastMap, npcs: eastNpcs } = generateEastMap();
 
         if (this.player) {
             this.player.gridX = 20;
@@ -355,7 +364,8 @@ export class Game {
                 map: homeMap,
                 npcs: homeNpcs || [],
                 interiors: {
-                    'overworld_north': { map: northMap, npcs: northNpcs || [] }
+                    'overworld_north': { map: northMap, npcs: northNpcs || [] },
+                    'overworld_east': { map: eastMap, npcs: eastNpcs || [] }
                 },
                 player: this.player.serialize(),
                 inventory: this.inventory.serialize(),
@@ -516,6 +526,10 @@ export class Game {
         // Update player movement
         if (this.player.isMoving) {
             this.player.update(dt);
+            // Footstep dust
+            if (Math.random() < 0.1) {
+                this.particleSystem.createDust(this.player.visX + 10, this.player.visY + 40);
+            }
         }
 
         // Update player buffs
@@ -544,9 +558,24 @@ export class Game {
         }
 
         // Update particles
+        // Update particles
         const view = this.renderer.getViewSize(state.zoom);
-        if (this.timeSystem.weather === 'Rain' && state.currentMap === 'overworld') {
-            this.particleSystem.addRain(state.camera.x, state.camera.y, view.width, this.timeSystem.season === 3);
+
+        // Weather
+        // Only if raining or snowing (Winter) or Spring (Petals)
+        // Check Season for "Petals" (Spring = 0)
+        // Check Weather for "Rain"
+
+        if (state.currentMap === 'overworld') {
+            const season = this.timeSystem.season;
+
+            if (this.timeSystem.weather === 'Rain') {
+                const type = season === 3 ? 'snow' : 'rain';
+                this.particleSystem.addWeather(state.camera.x, state.camera.y, view.width, type);
+            } else if (season === 0) {
+                // Spring Petals (occasional)
+                this.particleSystem.addWeather(state.camera.x, state.camera.y, view.width, 'petal');
+            }
         }
         this.particleSystem.update(state.camera.y, view.height);
 

@@ -100,6 +100,17 @@ export const PALETTE: Palette = {
     purple: '#76428a'
 };
 
+export const PALETTE_COZY: Palette = {
+    warm_oak: '#D9B382',
+    honey_wood: '#CCA670',
+    dark_chocolate: '#5D4037',
+    cream: '#F5F5DC',
+    deep_crimson: '#880E4F',
+    gold: '#FFD700',
+    cerulean_deep: '#0277BD',
+    stove_glow: '#FF5722'
+};
+
 // === Colors ===
 export const COLORS = {
     skin: [PALETTE.yellow, '#f1c27d', '#e0ac69', '#8d5524', '#c68642'],
@@ -118,14 +129,20 @@ export const DAYS_PER_SEASON = 28;
 export const SHOP_TABS = [
     { id: 'seeds', name: 'Seeds', icon: '🌱' },
     { id: 'animals', name: 'Animals', icon: '🐄' },
-    { id: 'tools', name: 'Tools', icon: '⚒️' }
+    { id: 'tools', name: 'Tools', icon: '⚒️' },
+    { id: 'guild', name: 'Guild', icon: '⚔️' }
 ];
 
-export const SEASON_COLORS: { [key: string]: { grass: string; tree: string } } = {
-    Spring: { grass: PALETTE.grass, tree: PALETTE.leaf_dark },
-    Summer: { grass: '#88bc7b', tree: '#46833b' },
-    Fall: { grass: '#b1a569', tree: '#9e4539' },
-    Winter: { grass: '#c0d1d4', tree: '#5a7d87' }
+export const SEASON_COLORS: { [key: string]: { grass: string; grass_light?: string; grass_dark?: string; tree: string } } = {
+    Spring: {
+        grass: '#7caf7e',          // Muted Base
+        grass_light: '#8fb990',    // Slightly lighter
+        grass_dark: '#6a9e6c',     // Slightly darker
+        tree: PALETTE.leaf_dark
+    },
+    Summer: { grass: '#88bc7b', grass_light: '#aedd9b', grass_dark: '#558b2f', tree: '#46833b' },
+    Fall: { grass: '#b1a569', grass_light: '#dce775', grass_dark: '#827717', tree: '#9e4539' },
+    Winter: { grass: '#c0d1d4', grass_light: '#e0f7fa', grass_dark: '#90a4ae', tree: '#5a7d87' }
 };
 
 // === Weather ===
@@ -150,7 +167,33 @@ export const TILES: TileMap = {
     CAVE: 13,
     DUNGEON_FLOOR: 14,
     DUNGEON_WALL: 15,
-    DUNGEON_STAIRS: 16
+    DUNGEON_STAIRS: 16,
+    // Town Expansion
+    TOWN_HOUSE: 20,
+    LIBRARY: 21,
+    SCHOOL: 22,
+    TAVERN: 23,
+    BLACKSMITH: 24,
+    CLINIC: 25,
+    MAYOR_HOUSE: 26,
+    CHURCH: 27,
+    FOUNTAIN: 28,
+    ROAD: 29,
+
+    // Future Expansion (Phase 1-3)
+    TAILOR: 30,
+    GUILD: 31,
+    BANK: 32,
+    WINDMILL: 33,
+    MUSEUM: 34,
+
+    // Town Decorations
+    FLOWER_BED: 40,
+    HEDGE: 41,
+    LAMP: 42,
+    BENCH: 43,
+    GARDEN: 44,
+    WELL: 45
 };
 
 // === Interior Tile Types ===
@@ -247,6 +290,10 @@ export const SEEDS: { [key: string]: CropConfig } = {
 // === Items ===
 export const ITEMS: { [key: string]: ItemConfig } = {
     WOODEN_SWORD: { name: 'Wooden Sword', type: 'weapon', attack: 5, cost: 0, sell: 10 },
+    IRON_SWORD: { name: 'Iron Sword', type: 'weapon', attack: 10, cost: 500, sell: 100 },
+    GOLD_SWORD: { name: 'Gold Sword', type: 'weapon', attack: 20, cost: 2000, sell: 400 },
+    POTION: { name: 'Health Potion', type: 'consumable', attack: 0, cost: 100, sell: 25 },
+
     PICKAXE: { name: 'Pickaxe', type: 'tool', attack: 2, cost: 100, sell: 25 },
     AXE: { name: 'Axe', type: 'tool', attack: 2, cost: 100, sell: 25 },
     HOE: { name: 'Hoe', type: 'tool', attack: 1, cost: 50, sell: 15 },

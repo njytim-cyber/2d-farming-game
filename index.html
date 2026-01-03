@@ -41,10 +41,6 @@
 
                 <div class="stat-row">
                     <div class="stat-pill">
-                        <span id="ui-season-icon">🌸</span>
-                        <strong id="ui-season-name">SPRING</strong>
-                    </div>
-                    <div class="stat-pill">
                         <span id="ui-time-icon">🕒</span>
                         <strong id="ui-time">06:00</strong>
                     </div>
@@ -52,9 +48,11 @@
             </div>
 
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
-                <div id="save-indicator" class="stat-pill save-indicator" style="padding: 8px;">💾</div>
+                <div id="minimap-container" class="minimap-container">
+                    <canvas id="minimap-canvas" width="150" height="150"></canvas>
+                </div>
+                <div id="save-indicator" class="save-indicator">Progress Saved</div>
                 <div class="stat-pill stat-pill--money">
-                    <span>BANK</span>
                     <strong id="ui-money" class="stat-pill__value">$100</strong>
                 </div>
                 <div class="stat-pill">
